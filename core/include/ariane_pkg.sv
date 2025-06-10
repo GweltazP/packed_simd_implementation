@@ -608,21 +608,33 @@ package ariane_pkg;
     UKSTSA16,
     // SIMD Shift operations
     SRA16,
-    SRA16_U, //TODO
+    SRA16_U,
+    SRAI16,
+    SRAI16_U,
     SRL16,
-    SRL16_U, //TODO
+    SRL16_U,
+    SRLI16,
+    SRLI16_U,
     SLL16,
-    KSLL16, //TODO
-    KSLRA16,//TODO
-    KSLRA16_U,//TODO
+    SLLI16,
+    KSLL16,
+    KSLLI16,
+    KSLRA16,
+    KSLRA16_U,
     SRA8,
-    SRA8_U,//TODO
+    SRA8_U,
+    SRAI8,
+    SRAI8_U,
     SRL8,
-    SRL8_U,//TODO
+    SRL8_U,
+    SRLI8,
+    SRLI8_U,
     SLL8,
-    KSLL8,//TODO
-    KSLRA8,//TODO
-    KSLRA8_U,//TODO
+    SLLI8,
+    KSLL8,
+    KSLLI8,
+    KSLRA8,
+    KSLRA8_U,
     // SIMD Comparisons operations 
     CMPEQ16,
     SCMPLT16,
@@ -634,16 +646,43 @@ package ariane_pkg;
     SCMPLE8,
     UCMPLT8,
     UCMPLE8,
-    //SIMD Miscellaneous instructions
-    SMIN8,
-    UMIN8,
-    SMAX8,
-    UMAX8,
+    // SIMD Multiply operations
+    SMUL16,
+    SMULX16,
+    UMUL16,
+    UMULX16,
+    KHM16,
+    KHMX16,
+    SMUL8,
+    SMULX8,
+    UMUL8,
+    UMULX8,
+    KHM8,
+    KHMX8,
+    // SIMD Miscellaneous instructions
     SMIN16,
     UMIN16,
     SMAX16,
     UMAX16,
-    //SIMD Unpack intsructions 
+    KABS16,
+    SCLIP16,
+    UCLIP16,
+    CLRS16,
+    CLZ16,
+    CLO16,
+    SWAP16,
+    SMIN8,
+    UMIN8,
+    SMAX8,
+    UMAX8,
+    KABS8,
+    SCLIP8,
+    UCLIP8,
+    CLRS8,
+    CLZ8,
+    CLO8,
+    SWAP8,
+    // SIMD Unpack intsructions 
     SUNPKD810,
     SUNPKD820,
     SUNPKD830,
@@ -654,17 +693,24 @@ package ariane_pkg;
     ZUNPKD830,
     ZUNPKD831,
     ZUNPKD832,
-    //SIMD Pack instructions 
+    // SIMD Pack instructions 
     PKBB16,
     PKBT16,
     PKTB16,
     PKTT16,
-    //Clip 32 bits
+    // Significant Word “32x32” Multiply & Add Instructions
+    SMMUL,
+    SMMUL_U,
+    KMMAC,
+    KMMAC_U,
+    KMMSB,
+    KMMSB_U,
+    KWMMUL,
+    KWMMUL_U,
+    // Clip 32 bits
     SCLIP32, 
     UCLIP32,
     // SIMD Multiplications
-    SMUL8,
-    UMUL8,
     SMAQA,
     //Custom SMAQA 
     SMAQA64,
@@ -674,7 +720,7 @@ package ariane_pkg;
     //Custom Load
     L64,
     L128,
-    L320
+    L320 
     
   } fu_op;
 

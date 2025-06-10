@@ -55,6 +55,9 @@ package config_pkg;
     bit                          RVV;
     bit                          RVC;
     bit                          RVZCB;
+    // CHANGED: Add for P Extension
+    bit                          RVP;
+    bit                          RVZPSF;
     bit                          XFVec;
     bit                          CvxifEn;
     bit                          ZiCondExtEn;

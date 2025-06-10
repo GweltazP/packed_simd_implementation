@@ -178,6 +178,9 @@ module cva6
     CVA6Cfg.RVV,
     CVA6Cfg.RVC,
     CVA6Cfg.RVZCB,
+    //CHANGED: Add for P extension
+    CVA6Cfg.RVP,
+    CVA6Cfg.RVZPSF,
     CVA6Cfg.XFVec,
     CVA6Cfg.CvxifEn,
     CVA6Cfg.ZiCondExtEn,
@@ -261,11 +264,13 @@ module cva6
   riscv::xlen_t             operand_e_id_ex;
   logic [riscv::VLEN-1:0] pc_id_ex;
   logic is_compressed_instr_id_ex;
+  // logic is_64bits_ex_issue;   // CHANGED: added for SIMD
   // fixed latency units
   logic flu_ready_ex_id;
   logic [TRANS_ID_BITS-1:0] flu_trans_id_ex_id;
   logic flu_valid_ex_id;
   riscv::xlen_t flu_result_ex_id;
+  // riscv::xlen_t flu_result_simd_ex_id;    //CHANGED: added for SIMD
   exception_t flu_exception_ex_id;
   // ALU
   logic alu_valid_id_ex;
@@ -364,6 +369,7 @@ module cva6
   logic [riscv::PPNW-1:0] satp_ppn_csr_ex;
   logic [ASID_WIDTH-1:0] asid_csr_ex;
   logic [11:0] csr_addr_ex_csr;
+  logic overflow_ex_csr;          // CHANGED: added for SIMD
   fu_op csr_op_commit_csr;
   riscv::xlen_t csr_wdata_commit_csr;
   riscv::xlen_t csr_rdata_csr_commit;
@@ -511,6 +517,8 @@ module cva6
   exception_t [NrWbPorts-1:0] ex_ex_ex_id;  // exception from execute, ex_stage to id_stage
   logic [NrWbPorts-1:0] wt_valid_ex_id;
 
+
+//TODO: add the flu_result_simd_ex_id to the wbdata_ex_id
   if (CVA6ExtendCfg.CvxifEn) begin
     assign trans_id_ex_id = {
       x_trans_id_ex_id,
@@ -573,6 +581,7 @@ module cva6
   // ---------
   // Issue
   // ---------
+  //TODO: wbdata_ex_id with an extra port for SIMD (maybe add a flag named SIMD to see if the instruction was SIMD or not)
   issue_stage #(
       .CVA6Cfg   (CVA6ExtendCfg),
       .IsRVFI    (IsRVFI),
@@ -638,6 +647,7 @@ module cva6
       .we_fpr_i           (we_fpr_commit_id),
       .commit_instr_o     (commit_instr_id_commit),
       .commit_ack_i       (commit_ack),
+      // .is_64bits_i        (is_64bits_ex_issue),   //CHANGED: added for SIMD
       // Performance Counters
       .stall_issue_o      (stall_issue),
       //RVFI
@@ -651,116 +661,347 @@ module cva6
   // ---------
   // EX
   // ---------
-  ex_stage #(
-      .CVA6Cfg   (CVA6ExtendCfg),
-      .ASID_WIDTH(ASID_WIDTH)
-  ) ex_stage_i (
-      .clk_i                (clk_i),
-      .rst_ni               (rst_ni),
-      .debug_mode_i         (debug_mode),
-      .flush_i              (flush_ctrl_ex),
-      .rs1_forwarding_i     (rs1_forwarding_id_ex),
-      .rs2_forwarding_i     (rs2_forwarding_id_ex),
-      .fu_data_i            (fu_data_id_ex),
-      .operand_d             (operand_d_id_ex),
-      .operand_e             (operand_e_id_ex),
-      .pc_i                 (pc_id_ex),
-      .is_compressed_instr_i(is_compressed_instr_id_ex),
-      // fixed latency units
-      .flu_result_o         (flu_result_ex_id),
-      .flu_trans_id_o       (flu_trans_id_ex_id),
-      .flu_valid_o          (flu_valid_ex_id),
-      .flu_exception_o      (flu_exception_ex_id),
-      .flu_ready_o          (flu_ready_ex_id),
-      // ALU
-      .alu_valid_i          (alu_valid_id_ex),
-      // Branches and Jumps
-      .branch_valid_i       (branch_valid_id_ex),
-      .branch_predict_i     (branch_predict_id_ex),       // branch predict to ex
-      .resolved_branch_o    (resolved_branch),
-      .resolve_branch_o     (resolve_branch_ex_id),
-      // CSR
-      .csr_valid_i          (csr_valid_id_ex),
-      .csr_addr_o           (csr_addr_ex_csr),
-      .csr_commit_i         (csr_commit_commit_ex),       // from commit
-      // MULT
-      .mult_valid_i         (mult_valid_id_ex),
-      // LSU
-      .lsu_ready_o          (lsu_ready_ex_id),
-      .lsu_valid_i          (lsu_valid_id_ex),
+  /*CHANGED: add flag to tell if the output is 64bits or not
+            add flag for the overflow
+            add one output for the SIMD instruction 64bits*/
+  
+  if (CVA6ExtendCfg.RVZPSF) begin
+  //Ex stage for both zpn and zpsfoperand sub extension
+      ex_stage_zpsf #(
+          .CVA6Cfg   (CVA6ExtendCfg),
+          .ASID_WIDTH(ASID_WIDTH)
+      ) ex_stage_zpsf_i (
+          .clk_i                (clk_i),
+          .rst_ni               (rst_ni),
+          .debug_mode_i         (debug_mode),
+          .flush_i              (flush_ctrl_ex),
+          .rs1_forwarding_i     (rs1_forwarding_id_ex),
+          .rs2_forwarding_i     (rs2_forwarding_id_ex),
+          .fu_data_i            (fu_data_id_ex),
+          .operand_d             (operand_d_id_ex),
+          .operand_e             (operand_e_id_ex),
+          .pc_i                 (pc_id_ex),
+          .is_compressed_instr_i(is_compressed_instr_id_ex),
+          // fixed latency units
+          .flu_result_o         (flu_result_ex_id),
+          // .flu_result_o_simd    (flu_result_ex_id_simd),      //CHANGED: added for SIMD
+          .flu_trans_id_o       (flu_trans_id_ex_id),
+          .flu_valid_o          (flu_valid_ex_id),
+          .flu_exception_o      (flu_exception_ex_id),
+          .flu_ready_o          (flu_ready_ex_id),
+          // .is_64bits_o          (is_64bits_ex_issue),         //CHANGED: added for SIMD 
+          // ALU
+          .alu_valid_i          (alu_valid_id_ex),
+          // Branches and Jumps
+          .branch_valid_i       (branch_valid_id_ex),
+          .branch_predict_i     (branch_predict_id_ex),       // branch predict to ex
+          .resolved_branch_o    (resolved_branch),
+          .resolve_branch_o     (resolve_branch_ex_id),
+          // CSR
+          .csr_valid_i          (csr_valid_id_ex),
+          .csr_addr_o           (csr_addr_ex_csr),
+          .csr_commit_i         (csr_commit_commit_ex),       // from commit
+          .overflow_o           (overflow_ex_csr),            //CHANGED: added for SIMD
+          // MULT
+          .mult_valid_i         (mult_valid_id_ex),
+          // LSU
+          .lsu_ready_o          (lsu_ready_ex_id),
+          .lsu_valid_i          (lsu_valid_id_ex),
 
-      .load_result_o   (load_result_ex_id),
-      .load_trans_id_o (load_trans_id_ex_id),
-      .load_valid_o    (load_valid_ex_id),
-      .load_exception_o(load_exception_ex_id),
+          .load_result_o   (load_result_ex_id),
+          .load_trans_id_o (load_trans_id_ex_id),
+          .load_valid_o    (load_valid_ex_id),
+          .load_exception_o(load_exception_ex_id),
 
-      .store_result_o   (store_result_ex_id),
-      .store_trans_id_o (store_trans_id_ex_id),
-      .store_valid_o    (store_valid_ex_id),
-      .store_exception_o(store_exception_ex_id),
+          .store_result_o   (store_result_ex_id),
+          .store_trans_id_o (store_trans_id_ex_id),
+          .store_valid_o    (store_valid_ex_id),
+          .store_exception_o(store_exception_ex_id),
 
-      .lsu_commit_i           (lsu_commit_commit_ex),          // from commit
-      .lsu_commit_ready_o     (lsu_commit_ready_ex_commit),    // to commit
-      .commit_tran_id_i       (lsu_commit_trans_id),           // from commit
-      .stall_st_pending_i     (stall_st_pending_ex),
-      .no_st_pending_o        (no_st_pending_ex),
-      // FPU
-      .fpu_ready_o            (fpu_ready_ex_id),
-      .fpu_valid_i            (fpu_valid_id_ex),
-      .fpu_fmt_i              (fpu_fmt_id_ex),
-      .fpu_rm_i               (fpu_rm_id_ex),
-      .fpu_frm_i              (frm_csr_id_issue_ex),
-      .fpu_prec_i             (fprec_csr_ex),
-      .fpu_trans_id_o         (fpu_trans_id_ex_id),
-      .fpu_result_o           (fpu_result_ex_id),
-      .fpu_valid_o            (fpu_valid_ex_id),
-      .fpu_exception_o        (fpu_exception_ex_id),
-      .amo_valid_commit_i     (amo_valid_commit),
-      .amo_req_o              (amo_req),
-      .amo_resp_i             (amo_resp),
-      // CoreV-X-Interface
-      .x_valid_i              (x_issue_valid_id_ex),
-      .x_ready_o              (x_issue_ready_ex_id),
-      .x_off_instr_i          (x_off_instr_id_ex),
-      .x_trans_id_o           (x_trans_id_ex_id),
-      .x_exception_o          (x_exception_ex_id),
-      .x_result_o             (x_result_ex_id),
-      .x_valid_o              (x_valid_ex_id),
-      .x_we_o                 (x_we_ex_id),
-      .cvxif_req_o            (cvxif_req),
-      .cvxif_resp_i           (cvxif_resp),
-      // Accelerator
-      .acc_valid_i            (acc_valid_acc_ex),
-      // Performance counters
-      .itlb_miss_o            (itlb_miss_ex_perf),
-      .dtlb_miss_o            (dtlb_miss_ex_perf),
-      // Memory Management
-      .enable_translation_i   (enable_translation_csr_ex),     // from CSR
-      .en_ld_st_translation_i (en_ld_st_translation_csr_ex),
-      .flush_tlb_i            (flush_tlb_ctrl_ex),
-      .priv_lvl_i             (priv_lvl),                      // from CSR
-      .ld_st_priv_lvl_i       (ld_st_priv_lvl_csr_ex),         // from CSR
-      .sum_i                  (sum_csr_ex),                    // from CSR
-      .mxr_i                  (mxr_csr_ex),                    // from CSR
-      .satp_ppn_i             (satp_ppn_csr_ex),               // from CSR
-      .asid_i                 (asid_csr_ex),                   // from CSR
-      .icache_areq_i          (icache_areq_cache_ex),
-      .icache_areq_o          (icache_areq_ex_cache),
-      // DCACHE interfaces
-      .dcache_req_ports_i     (dcache_req_ports_cache_ex),
-      .dcache_req_ports_o     (dcache_req_ports_ex_cache),
-      .dcache_wbuffer_empty_i (dcache_commit_wbuffer_empty),
-      .dcache_wbuffer_not_ni_i(dcache_commit_wbuffer_not_ni),
-      // PMP
-      .pmpcfg_i               (pmpcfg),
-      .pmpaddr_i              (pmpaddr),
-      //RVFI
-      .lsu_addr_o             (lsu_addr),
-      .mem_paddr_o            (mem_paddr),
-      .lsu_rmask_o            (lsu_rmask),
-      .lsu_wmask_o            (lsu_wmask),
-      .lsu_addr_trans_id_o    (lsu_addr_trans_id)
-  );
+          .lsu_commit_i           (lsu_commit_commit_ex),          // from commit
+          .lsu_commit_ready_o     (lsu_commit_ready_ex_commit),    // to commit
+          .commit_tran_id_i       (lsu_commit_trans_id),           // from commit
+          .stall_st_pending_i     (stall_st_pending_ex),
+          .no_st_pending_o        (no_st_pending_ex),
+          // FPU
+          .fpu_ready_o            (fpu_ready_ex_id),
+          .fpu_valid_i            (fpu_valid_id_ex),
+          .fpu_fmt_i              (fpu_fmt_id_ex),
+          .fpu_rm_i               (fpu_rm_id_ex),
+          .fpu_frm_i              (frm_csr_id_issue_ex),
+          .fpu_prec_i             (fprec_csr_ex),
+          .fpu_trans_id_o         (fpu_trans_id_ex_id),
+          .fpu_result_o           (fpu_result_ex_id),
+          .fpu_valid_o            (fpu_valid_ex_id),
+          .fpu_exception_o        (fpu_exception_ex_id),
+          .amo_valid_commit_i     (amo_valid_commit),
+          .amo_req_o              (amo_req),
+          .amo_resp_i             (amo_resp),
+          // CoreV-X-Interface
+          .x_valid_i              (x_issue_valid_id_ex),
+          .x_ready_o              (x_issue_ready_ex_id),
+          .x_off_instr_i          (x_off_instr_id_ex),
+          .x_trans_id_o           (x_trans_id_ex_id),
+          .x_exception_o          (x_exception_ex_id),
+          .x_result_o             (x_result_ex_id),
+          .x_valid_o              (x_valid_ex_id),
+          .x_we_o                 (x_we_ex_id),
+          .cvxif_req_o            (cvxif_req),
+          .cvxif_resp_i           (cvxif_resp),
+          // Accelerator
+          .acc_valid_i            (acc_valid_acc_ex),
+          // Performance counters
+          .itlb_miss_o            (itlb_miss_ex_perf),
+          .dtlb_miss_o            (dtlb_miss_ex_perf),
+          // Memory Management
+          .enable_translation_i   (enable_translation_csr_ex),     // from CSR
+          .en_ld_st_translation_i (en_ld_st_translation_csr_ex),
+          .flush_tlb_i            (flush_tlb_ctrl_ex),
+          .priv_lvl_i             (priv_lvl),                      // from CSR
+          .ld_st_priv_lvl_i       (ld_st_priv_lvl_csr_ex),         // from CSR
+          .sum_i                  (sum_csr_ex),                    // from CSR
+          .mxr_i                  (mxr_csr_ex),                    // from CSR
+          .satp_ppn_i             (satp_ppn_csr_ex),               // from CSR
+          .asid_i                 (asid_csr_ex),                   // from CSR
+          .icache_areq_i          (icache_areq_cache_ex),
+          .icache_areq_o          (icache_areq_ex_cache),
+          // DCACHE interfaces
+          .dcache_req_ports_i     (dcache_req_ports_cache_ex),
+          .dcache_req_ports_o     (dcache_req_ports_ex_cache),
+          .dcache_wbuffer_empty_i (dcache_commit_wbuffer_empty),
+          .dcache_wbuffer_not_ni_i(dcache_commit_wbuffer_not_ni),
+          // PMP
+          .pmpcfg_i               (pmpcfg),
+          .pmpaddr_i              (pmpaddr),
+          //RVFI
+          .lsu_addr_o             (lsu_addr),
+          .mem_paddr_o            (mem_paddr),
+          .lsu_rmask_o            (lsu_rmask),
+          .lsu_wmask_o            (lsu_wmask),
+          .lsu_addr_trans_id_o    (lsu_addr_trans_id)
+      );
+  end if (CVA6ExtendCfg.RVP) begin
+    ex_stage_zpn #(
+        .CVA6Cfg   (CVA6ExtendCfg),
+        .ASID_WIDTH(ASID_WIDTH)
+    ) ex_stage_zpn_i (
+        .clk_i                (clk_i),
+        .rst_ni               (rst_ni),
+        .debug_mode_i         (debug_mode),
+        .flush_i              (flush_ctrl_ex),
+        .rs1_forwarding_i     (rs1_forwarding_id_ex),
+        .rs2_forwarding_i     (rs2_forwarding_id_ex),
+        .fu_data_i            (fu_data_id_ex),
+        .operand_d             (operand_d_id_ex),
+        .operand_e             (operand_e_id_ex),
+        .pc_i                 (pc_id_ex),
+        .is_compressed_instr_i(is_compressed_instr_id_ex),
+        // fixed latency units
+        .flu_result_o         (flu_result_ex_id),
+        .flu_trans_id_o       (flu_trans_id_ex_id),
+        .flu_valid_o          (flu_valid_ex_id),
+        .flu_exception_o      (flu_exception_ex_id),
+        .flu_ready_o          (flu_ready_ex_id),
+        // ALU
+        .alu_valid_i          (alu_valid_id_ex),
+        // Branches and Jumps
+        .branch_valid_i       (branch_valid_id_ex),
+        .branch_predict_i     (branch_predict_id_ex),       // branch predict to ex
+        .resolved_branch_o    (resolved_branch),
+        .resolve_branch_o     (resolve_branch_ex_id),
+        // CSR
+        .csr_valid_i          (csr_valid_id_ex),
+        .csr_addr_o           (csr_addr_ex_csr),
+        .csr_commit_i         (csr_commit_commit_ex),       // from commit
+        .overflow_o           (overflow_ex_csr),            //CHANGED: added for SIMD
+        // MULT
+        .mult_valid_i         (mult_valid_id_ex),
+        // LSU
+        .lsu_ready_o          (lsu_ready_ex_id),
+        .lsu_valid_i          (lsu_valid_id_ex),
+
+        .load_result_o   (load_result_ex_id),
+        .load_trans_id_o (load_trans_id_ex_id),
+        .load_valid_o    (load_valid_ex_id),
+        .load_exception_o(load_exception_ex_id),
+
+        .store_result_o   (store_result_ex_id),
+        .store_trans_id_o (store_trans_id_ex_id),
+        .store_valid_o    (store_valid_ex_id),
+        .store_exception_o(store_exception_ex_id),
+
+        .lsu_commit_i           (lsu_commit_commit_ex),          // from commit
+        .lsu_commit_ready_o     (lsu_commit_ready_ex_commit),    // to commit
+        .commit_tran_id_i       (lsu_commit_trans_id),           // from commit
+        .stall_st_pending_i     (stall_st_pending_ex),
+        .no_st_pending_o        (no_st_pending_ex),
+        // FPU
+        .fpu_ready_o            (fpu_ready_ex_id),
+        .fpu_valid_i            (fpu_valid_id_ex),
+        .fpu_fmt_i              (fpu_fmt_id_ex),
+        .fpu_rm_i               (fpu_rm_id_ex),
+        .fpu_frm_i              (frm_csr_id_issue_ex),
+        .fpu_prec_i             (fprec_csr_ex),
+        .fpu_trans_id_o         (fpu_trans_id_ex_id),
+        .fpu_result_o           (fpu_result_ex_id),
+        .fpu_valid_o            (fpu_valid_ex_id),
+        .fpu_exception_o        (fpu_exception_ex_id),
+        .amo_valid_commit_i     (amo_valid_commit),
+        .amo_req_o              (amo_req),
+        .amo_resp_i             (amo_resp),
+        // CoreV-X-Interface
+        .x_valid_i              (x_issue_valid_id_ex),
+        .x_ready_o              (x_issue_ready_ex_id),
+        .x_off_instr_i          (x_off_instr_id_ex),
+        .x_trans_id_o           (x_trans_id_ex_id),
+        .x_exception_o          (x_exception_ex_id),
+        .x_result_o             (x_result_ex_id),
+        .x_valid_o              (x_valid_ex_id),
+        .x_we_o                 (x_we_ex_id),
+        .cvxif_req_o            (cvxif_req),
+        .cvxif_resp_i           (cvxif_resp),
+        // Accelerator
+        .acc_valid_i            (acc_valid_acc_ex),
+        // Performance counters
+        .itlb_miss_o            (itlb_miss_ex_perf),
+        .dtlb_miss_o            (dtlb_miss_ex_perf),
+        // Memory Management
+        .enable_translation_i   (enable_translation_csr_ex),     // from CSR
+        .en_ld_st_translation_i (en_ld_st_translation_csr_ex),
+        .flush_tlb_i            (flush_tlb_ctrl_ex),
+        .priv_lvl_i             (priv_lvl),                      // from CSR
+        .ld_st_priv_lvl_i       (ld_st_priv_lvl_csr_ex),         // from CSR
+        .sum_i                  (sum_csr_ex),                    // from CSR
+        .mxr_i                  (mxr_csr_ex),                    // from CSR
+        .satp_ppn_i             (satp_ppn_csr_ex),               // from CSR
+        .asid_i                 (asid_csr_ex),                   // from CSR
+        .icache_areq_i          (icache_areq_cache_ex),
+        .icache_areq_o          (icache_areq_ex_cache),
+        // DCACHE interfaces
+        .dcache_req_ports_i     (dcache_req_ports_cache_ex),
+        .dcache_req_ports_o     (dcache_req_ports_ex_cache),
+        .dcache_wbuffer_empty_i (dcache_commit_wbuffer_empty),
+        .dcache_wbuffer_not_ni_i(dcache_commit_wbuffer_not_ni),
+        // PMP
+        .pmpcfg_i               (pmpcfg),
+        .pmpaddr_i              (pmpaddr),
+        //RVFI
+        .lsu_addr_o             (lsu_addr),
+        .mem_paddr_o            (mem_paddr),
+        .lsu_rmask_o            (lsu_rmask),
+        .lsu_wmask_o            (lsu_wmask),
+        .lsu_addr_trans_id_o    (lsu_addr_trans_id)
+    );
+  end else
+    ex_stage #(
+        .CVA6Cfg   (CVA6ExtendCfg),
+        .ASID_WIDTH(ASID_WIDTH)
+    ) ex_stage_i (
+        .clk_i                (clk_i),
+        .rst_ni               (rst_ni),
+        .debug_mode_i         (debug_mode),
+        .flush_i              (flush_ctrl_ex),
+        .rs1_forwarding_i     (rs1_forwarding_id_ex),
+        .rs2_forwarding_i     (rs2_forwarding_id_ex),
+        .fu_data_i            (fu_data_id_ex),
+        .pc_i                 (pc_id_ex),
+        .is_compressed_instr_i(is_compressed_instr_id_ex),
+        // fixed latency units
+        .flu_result_o         (flu_result_ex_id),
+        .flu_trans_id_o       (flu_trans_id_ex_id),
+        .flu_valid_o          (flu_valid_ex_id),
+        .flu_exception_o      (flu_exception_ex_id),
+        .flu_ready_o          (flu_ready_ex_id),
+        // ALU
+        .alu_valid_i          (alu_valid_id_ex),
+        // Branches and Jumps
+        .branch_valid_i       (branch_valid_id_ex),
+        .branch_predict_i     (branch_predict_id_ex),       // branch predict to ex
+        .resolved_branch_o    (resolved_branch),
+        .resolve_branch_o     (resolve_branch_ex_id),
+        // CSR
+        .csr_valid_i          (csr_valid_id_ex),
+        .csr_addr_o           (csr_addr_ex_csr),
+        .csr_commit_i         (csr_commit_commit_ex),       // from commit
+        // MULT
+        .mult_valid_i         (mult_valid_id_ex),
+        // LSU
+        .lsu_ready_o          (lsu_ready_ex_id),
+        .lsu_valid_i          (lsu_valid_id_ex),
+
+        .load_result_o   (load_result_ex_id),
+        .load_trans_id_o (load_trans_id_ex_id),
+        .load_valid_o    (load_valid_ex_id),
+        .load_exception_o(load_exception_ex_id),
+
+        .store_result_o   (store_result_ex_id),
+        .store_trans_id_o (store_trans_id_ex_id),
+        .store_valid_o    (store_valid_ex_id),
+        .store_exception_o(store_exception_ex_id),
+
+        .lsu_commit_i           (lsu_commit_commit_ex),          // from commit
+        .lsu_commit_ready_o     (lsu_commit_ready_ex_commit),    // to commit
+        .commit_tran_id_i       (lsu_commit_trans_id),           // from commit
+        .stall_st_pending_i     (stall_st_pending_ex),
+        .no_st_pending_o        (no_st_pending_ex),
+        // FPU
+        .fpu_ready_o            (fpu_ready_ex_id),
+        .fpu_valid_i            (fpu_valid_id_ex),
+        .fpu_fmt_i              (fpu_fmt_id_ex),
+        .fpu_rm_i               (fpu_rm_id_ex),
+        .fpu_frm_i              (frm_csr_id_issue_ex),
+        .fpu_prec_i             (fprec_csr_ex),
+        .fpu_trans_id_o         (fpu_trans_id_ex_id),
+        .fpu_result_o           (fpu_result_ex_id),
+        .fpu_valid_o            (fpu_valid_ex_id),
+        .fpu_exception_o        (fpu_exception_ex_id),
+        .amo_valid_commit_i     (amo_valid_commit),
+        .amo_req_o              (amo_req),
+        .amo_resp_i             (amo_resp),
+        // CoreV-X-Interface
+        .x_valid_i              (x_issue_valid_id_ex),
+        .x_ready_o              (x_issue_ready_ex_id),
+        .x_off_instr_i          (x_off_instr_id_ex),
+        .x_trans_id_o           (x_trans_id_ex_id),
+        .x_exception_o          (x_exception_ex_id),
+        .x_result_o             (x_result_ex_id),
+        .x_valid_o              (x_valid_ex_id),
+        .x_we_o                 (x_we_ex_id),
+        .cvxif_req_o            (cvxif_req),
+        .cvxif_resp_i           (cvxif_resp),
+        // Accelerator
+        .acc_valid_i            (acc_valid_acc_ex),
+        // Performance counters
+        .itlb_miss_o            (itlb_miss_ex_perf),
+        .dtlb_miss_o            (dtlb_miss_ex_perf),
+        // Memory Management
+        .enable_translation_i   (enable_translation_csr_ex),     // from CSR
+        .en_ld_st_translation_i (en_ld_st_translation_csr_ex),
+        .flush_tlb_i            (flush_tlb_ctrl_ex),
+        .priv_lvl_i             (priv_lvl),                      // from CSR
+        .ld_st_priv_lvl_i       (ld_st_priv_lvl_csr_ex),         // from CSR
+        .sum_i                  (sum_csr_ex),                    // from CSR
+        .mxr_i                  (mxr_csr_ex),                    // from CSR
+        .satp_ppn_i             (satp_ppn_csr_ex),               // from CSR
+        .asid_i                 (asid_csr_ex),                   // from CSR
+        .icache_areq_i          (icache_areq_cache_ex),
+        .icache_areq_o          (icache_areq_ex_cache),
+        // DCACHE interfaces
+        .dcache_req_ports_i     (dcache_req_ports_cache_ex),
+        .dcache_req_ports_o     (dcache_req_ports_ex_cache),
+        .dcache_wbuffer_empty_i (dcache_commit_wbuffer_empty),
+        .dcache_wbuffer_not_ni_i(dcache_commit_wbuffer_not_ni),
+        // PMP
+        .pmpcfg_i               (pmpcfg),
+        .pmpaddr_i              (pmpaddr),
+        //RVFI
+        .lsu_addr_o             (lsu_addr),
+        .mem_paddr_o            (mem_paddr),
+        .lsu_rmask_o            (lsu_rmask),
+        .lsu_wmask_o            (lsu_wmask),
+        .lsu_addr_trans_id_o    (lsu_addr_trans_id)
+    );
+
 
   // ---------
   // Commit
@@ -809,6 +1050,7 @@ module cva6
   // ---------
   // CSR
   // ---------
+  //TODO: add the overflow signal to the CSR
   csr_regfile #(
       .CVA6Cfg       (CVA6ExtendCfg),
       .AsidWidth     (ASID_WIDTH),
@@ -835,6 +1077,7 @@ module cva6
       .set_debug_pc_o        (set_debug_pc),
       .trap_vector_base_o    (trap_vector_base_commit_pcgen),
       .priv_lvl_o            (priv_lvl),
+      .overflow_i            (overflow_ex_csr),            //CHANGED: added for SIMD
       .acc_fflags_ex_i       (acc_resp_fflags),
       .acc_fflags_ex_valid_i (acc_resp_fflags_valid),
       .fs_o                  (fs),

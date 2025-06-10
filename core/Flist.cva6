@@ -187,4 +187,17 @@ ${CVA6_REPO_DIR}/core/mmu_sv32/cva6_ptw_sv32.sv
 ${CVA6_REPO_DIR}/core/mmu_sv32/cva6_tlb_sv32.sv
 ${CVA6_REPO_DIR}/core/mmu_sv32/cva6_shared_tlb_sv32.sv
 
+// P extension modules
+// CHANGED: added for P extension
+${CVA6_REPO_DIR}/core/ex_stage_zpn.sv
+${CVA6_REPO_DIR}/core/alu_zpn.sv
+${CVA6_REPO_DIR}/core/mult_zpn.sv
+${CVA6_REPO_DIR}/core/multiplier_zpn.sv
+
+${CVA6_REPO_DIR}/core/ex_stage_zpsf.sv
+${CVA6_REPO_DIR}/core/alu_zpsf.sv
+${CVA6_REPO_DIR}/core/mult_zpsf.sv
+${CVA6_REPO_DIR}/core/multiplier_zpsf.sv
+
+
 // end of manifest

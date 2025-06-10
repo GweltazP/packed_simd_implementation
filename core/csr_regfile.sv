@@ -51,6 +51,8 @@ module csr_regfile
     output logic eret_o,  // Return from exception, set the PC of epc_o
     output logic  [riscv::VLEN-1:0] trap_vector_base_o,       // Output base of exception vector, correct CSR is output (mtvec, stvec)
     output riscv::priv_lvl_t priv_lvl_o,  // Current privilege level the CPU is in
+    //SIMD
+    input logic overflow_i,     // CHANGED: Overflow from SIMD
     // FP Imprecise exceptions
     input  logic            [4:0] acc_fflags_ex_i,            // Imprecise FP exception from the accelerator (fcsr.fflags format)
     input logic acc_fflags_ex_valid_i,  // An FP exception from the accelerator occurred
@@ -97,6 +99,9 @@ module csr_regfile
     output logic [15:0][riscv::PLEN-3:0] pmpaddr_o,  // PMP addresses
     output logic [31:0] mcountinhibit_o
 );
+
+  //TODO: add register for SIMD overflow
+  
   // internal signal to keep track of access exceptions
   logic read_access_exception, update_access_exception, privilege_violation;
   logic csr_we, csr_read;

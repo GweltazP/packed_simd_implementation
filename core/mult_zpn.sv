@@ -9,8 +9,13 @@ module mult
     input  logic                             rst_ni,
     input  logic                             flush_i,
     input  fu_data_t                         fu_data_i,
+    input  riscv::xlen_t                     operand_d,
+    input  riscv::xlen_t                     operand_e,
     input  logic                             mult_valid_i,
     output riscv::xlen_t                     result_o,
+    // output riscv::xlen_t                     result_simd_o,     //CHANGED: added for SIMD   // 2nd half of the result [31:0]
+    output logic                             overflow_o,        //CHANGED: added for SIMD
+    // output logic                             is_64bits_o,       //CHANGED: added for SIMD
     output logic                             mult_valid_o,
     output logic                             mult_ready_o,
     output logic         [TRANS_ID_BITS-1:0] mult_trans_id_o
@@ -21,13 +26,16 @@ module mult
   logic [TRANS_ID_BITS-1:0] mul_trans_id;
   logic [TRANS_ID_BITS-1:0] div_trans_id;
   riscv::xlen_t mul_result;
+  // riscv::xlen_t mul_result_simd;    //CHANGED: added for SIMD
+  logic overflow;                   //CHANGED: added for SIMD
+  // logic is_64bits;                  //CHANGED: added for SIMD 
   riscv::xlen_t div_result;
 
   logic div_valid_op;
   logic mul_valid_op;
   // Input Arbitration
 
-  assign mul_valid_op = ~flush_i && mult_valid_i && (fu_data_i.operation inside { MUL, MULH, MULHU, MULHSU, MULW, CLMUL, CLMULH, CLMULR });
+  assign mul_valid_op = ~flush_i && mult_valid_i && (fu_data_i.operation inside { MUL, MULH, MULHU, MULHSU, MULW, CLMUL, CLMULH, CLMULR, SMUL8, UMUL8, SMAQA, SMAQA64, SMAQA128, SMAQA320, RSTSMAQA});
 
   assign div_valid_op = ~flush_i && mult_valid_i && (fu_data_i.operation inside { DIV, DIVU, DIVW, DIVUW, REM, REMU, REMW, REMUW });
 
@@ -39,22 +47,29 @@ module mult
   assign div_ready_i = (mul_valid) ? 1'b0 : 1'b1;
   assign mult_trans_id_o = (mul_valid) ? mul_trans_id : div_trans_id;
   assign result_o = (mul_valid) ? mul_result : div_result;
+  // assign result_simd_o = (mul_valid) ? mul_result_simd : '0;  //CHANGED: added for SIMD
+  assign overflow_o = (mul_valid) ? overflow : '0;            //CHANGED: added for SIMD
+  // assign is_64bits_o = (mul_valid) ? is_64bits : '0;          //CHANGED: added for SIMD 
   assign mult_valid_o = div_valid | mul_valid;
   // mult_ready_o = division as the multiplication will unconditionally be ready to accept new requests
 
   // ---------------------
   // Multiplication
   // ---------------------
-  multiplier #(
+  multiplier_zpn #(
       .CVA6Cfg(CVA6Cfg)
-  ) i_multiplier (
+  ) i_multiplier_zpn (
       .clk_i,
       .rst_ni,
       .trans_id_i     (fu_data_i.trans_id),
       .operation_i    (fu_data_i.operation),
       .operand_a_i    (fu_data_i.operand_a),
       .operand_b_i    (fu_data_i.operand_b),
+      .operand_c_i    (fu_data_i.imm),
+      .operand_d_i    (operand_d),
+      .operand_e_i    (operand_e),
       .result_o       (mul_result),
+      .overflow_o     (overflow),         //CHANGED: added for SIMD
       .mult_valid_i   (mul_valid_op),
       .mult_valid_o   (mul_valid),
       .mult_trans_id_o(mul_trans_id),

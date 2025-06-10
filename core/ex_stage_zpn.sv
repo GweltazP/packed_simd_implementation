@@ -28,6 +28,8 @@ module ex_stage
     input logic [riscv::VLEN-1:0] rs1_forwarding_i,
     input logic [riscv::VLEN-1:0] rs2_forwarding_i,
     input fu_data_t fu_data_i,
+    input riscv::xlen_t  operand_d,
+    input riscv::xlen_t  operand_e,
     input logic [riscv::VLEN-1:0] pc_i,  // PC of current instruction
     input logic is_compressed_instr_i,  // we need to know if this was a compressed instruction
                                         // in order to calculate the next PC on a mis-predict
@@ -49,6 +51,7 @@ module ex_stage
     input logic csr_valid_i,
     output logic [11:0] csr_addr_o,
     input logic csr_commit_i,
+    output logic overflow_o,    //CHANGED: added for SIMD //NOTE: this is the multiplication overflow, not the addition overflow
     // MULT
     input logic mult_valid_i,  // Output is valid
     // LSU
@@ -159,7 +162,8 @@ module ex_stage
 
   // from ALU to branch unit
   logic alu_branch_res;  // branch comparison result
-  riscv::xlen_t alu_result, csr_result, mult_result;
+  riscv::xlen_t alu_result, csr_result, mult_result; //CHANGED: added for SIMD
+  logic overflow;                                    //CHANGED: added for SIMD  
   logic [riscv::VLEN-1:0] branch_result;
   logic csr_ready, mult_ready;
   logic [TRANS_ID_BITS-1:0] mult_trans_id;
@@ -170,9 +174,9 @@ module ex_stage
   fu_data_t alu_data;
   assign alu_data = (alu_valid_i | branch_valid_i) ? fu_data_i : '0;
 
-  alu #(
+  alu_zpn #(
       .CVA6Cfg(CVA6Cfg)
-  ) alu_i (
+  ) alu_zpn_i (
       .clk_i,
       .rst_ni,
       .fu_data_i       (alu_data),
@@ -233,6 +237,7 @@ module ex_stage
       flu_result_o = csr_result;
     end else if (mult_valid) begin
       flu_result_o   = mult_result;
+      overflow_o = overflow;                //CHANGED: added for SIMD
       flu_trans_id_o = mult_trans_id;
     end
   end
@@ -244,18 +249,24 @@ module ex_stage
 
   // 4. Multiplication (Sequential)
   fu_data_t mult_data;
+  riscv::xlen_t mult_operand_d, mult_operand_e;
   // input silencing of multiplier
   assign mult_data = mult_valid_i ? fu_data_i : '0;
+  assign mult_operand_d = mult_valid_i ? operand_d : '0;
+  assign mult_operand_e = mult_valid_i ? operand_e : '0;
 
-  mult #(
+  mult_zpn #(
       .CVA6Cfg(CVA6Cfg)
-  ) i_mult (
+  ) i_mult_zpn (
       .clk_i,
       .rst_ni,
       .flush_i,
       .mult_valid_i,
       .fu_data_i      (mult_data),
+      .operand_d      (mult_operand_d),
+      .operand_e      (mult_operand_e),
       .result_o       (mult_result),
+      .overflow_o     (overflow),           //CHANGED: added for SIMD
       .mult_valid_o   (mult_valid),
       .mult_ready_o   (mult_ready),
       .mult_trans_id_o(mult_trans_id)

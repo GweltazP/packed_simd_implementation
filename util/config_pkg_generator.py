@@ -43,6 +43,10 @@ def setup_parser_config_generator():
                       help="A extension enable ? 1 : enable, 0 : disable")
   parser.add_argument("--b_ext", type=int, default=None, choices=[0,1],
                       help="B extension enable ? 1 : enable, 0 : disable")
+  parser.add_argument("--p_ext", type=int, default=None, choices=[0,1],
+                      help="P extension enable (zpn only) ? 1 : enable, 0 : disable")
+  parser.add_argument("--zpsf_subext", type=int, default=None, choices=[0,1],
+                      help="Zpsfoperand subextension of P extension enable ? 1 : enable, 0 : disable")
   parser.add_argument("--AxiIdWidth", type=int, default=None,
                       help="AXI transaction ID width")
   parser.add_argument("--AxiAddrWidth", type=int, default=None,
@@ -129,6 +133,8 @@ MapArgsToParameter={
   "zcb_ext" : "CVA6ConfigZCbExtEn",
   "a_ext" : "CVA6ConfigAExtEn",
   "b_ext" : "CVA6ConfigBExtEn",
+  "p_ext" : "CVA6ConfigPExtEn",
+  "zpsf_subext" : "CVA6ConfigZPSFSubExtEn"
   "AxiIdWidth" : "CVA6ConfigAxiIdWidth",
   "AxiAddrWidth" : "CVA6ConfigAxiAddrWidth",
   "AxiDataWidth" : "CVA6ConfigAxiDataWidth",

@@ -30,7 +30,7 @@ export TARGET=riscv-none-elf
 
 # Binutils
 BINUTILS_DIR=src/binutils-gdb
-BINUTILS_REPO=https://github.com/adrienpelle/riscv-binutils-gdb
+BINUTILS_REPO=https://github.com/GweltazP/riscv-binutils-gdb
 BINUTILS_COMMIT=riscv-binutils-p-ext
 BINUTILS_CONFIGURE_OPTS="\
 	--prefix=$PREFIX \
@@ -42,8 +42,8 @@ BINUTILS_CONFIGURE_OPTS="\
 
 # GCC
 GCC_DIR=src/gcc
-GCC_REPO=https://github.com/adrienpelle/riscv-gcc
-GCC_COMMIT=riscv-gcc-p-ext-custom
+GCC_REPO=https://github.com/GweltazP/riscv-gcc
+GCC_COMMIT=riscv-gcc-p-ext-under-test
 GCC_CONFIGURE_OPTS="\
 	--prefix=$PREFIX \
 	--target=$TARGET \
