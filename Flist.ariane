@@ -59,6 +59,8 @@ vendor/pulp-platform/tech_cells_generic/src/rtl/tc_sram.sv
 vendor/pulp-platform/tech_cells_generic/src/rtl/tc_clk.sv
 core/cache_subsystem/axi_adapter.sv
 core/alu.sv
+core/alu_zpn.sv
+core/alu_zpsf.sv
 core/fpu_wrap.sv
 corev_apu/src/ariane.sv
 core/cva6.sv
@@ -69,6 +71,8 @@ core/csr_buffer.sv
 core/csr_regfile.sv
 core/decoder.sv
 core/ex_stage.sv
+core/ex_stage_zpn.sv
+core/ex_stage_zpsf.sv
 core/frontend/btb.sv
 core/frontend/bht.sv
 core/frontend/ras.sv
@@ -84,7 +88,11 @@ core/load_store_unit.sv
 core/lsu_bypass.sv
 core/mmu_sv39/mmu.sv
 core/mult.sv
+core/mult_zpn.sv
+core/mult_zpsf.sv
 core/multiplier.sv
+core/multiplier_zpn.sv
+core/multiplier_zpsf.sv
 core/serdiv.sv
 core/perf_counters.sv
 core/mmu_sv39/ptw.sv

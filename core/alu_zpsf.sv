@@ -18,7 +18,7 @@
 // Description: Ariane ALU based on RI5CY's ALU
 
 
-module alu
+module alu_zpsf
   import ariane_pkg::*;
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty
@@ -201,8 +201,6 @@ module alu
     // ------
     // SIMD Instructions
     // ------
-
-    if (cva6_config_pkg::cva6_cfg::RVP) begin
 
         // ------
         // SIMD Adder
@@ -790,7 +788,6 @@ module alu
                 default: ;
             endcase
         end
-    end 
 
     // -----------
     // Bit Manipulation & SIMD Bit Manipulation
@@ -825,8 +822,6 @@ module alu
             .cnt_o(lz_tz_wcount),
             .empty_o(lz_tz_wempty)
         );
-
-        if (cva6_config_pkg::cva6_cfg::RVP) begin
 
             //For SIMD instructions
             //16b
@@ -993,7 +988,6 @@ module alu
                 .cnt_o(cls_8count_3),
                 .empty_o(cls_8empty_3)
             );
-        end // if (ariane_pkg::ENABLE_P_EXTENSION)
     end // gen_bitmanip
 
     if (ariane_pkg::BITMANIP) begin : gen_orcbw_rev8w_results

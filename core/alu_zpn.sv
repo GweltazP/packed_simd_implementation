@@ -18,7 +18,7 @@
 // Description: Ariane ALU based on RI5CY's ALU
 
 
-module alu
+module alu_zpn
   import ariane_pkg::*;
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty

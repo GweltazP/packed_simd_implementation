@@ -14,7 +14,7 @@
 // Description: Instantiation of all functional units residing in the execute stage
 
 
-module ex_stage
+module ex_stage_zpn
   import ariane_pkg::*;
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,

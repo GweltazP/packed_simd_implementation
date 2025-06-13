@@ -7,6 +7,8 @@ filesets:
       - include/ariane_pkg.sv
       - include/nbdcache_pkg.sv
       - src/alu.sv
+      - src/alu_zpn.sv
+      - src/alu_zpsf.sv
       - src/ariane.sv
       - src/ariane_wrapped.sv
       - src/branch_unit.sv
@@ -20,6 +22,8 @@ filesets:
       - src/debug_unit.sv
       - src/decoder.sv
       - src/ex_stage.sv
+      - src/ex_stage_zpn.sv
+      - src/ex_stage_zpsf.sv
       - src/fetch_fifo.sv
       - src/fifo.sv
       - src/icache.sv
@@ -36,6 +40,8 @@ filesets:
       - src/mmu_sv39/mmu.sv
       - src/mmu_sv32/cva6_mmu_sv32.sv
       - src/mult.sv
+      - src/mult_zpn.sv
+      - src/mult_zpsf.sv
       - src/nbdcache.sv
       - src/pcgen_stage.sv
       - src/perf_counters.sv

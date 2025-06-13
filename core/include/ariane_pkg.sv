@@ -711,16 +711,7 @@ package ariane_pkg;
     SCLIP32, 
     UCLIP32,
     // SIMD Multiplications
-    SMAQA,
-    //Custom SMAQA 
-    SMAQA64,
-    SMAQA128,
-    SMAQA320,
-    RSTSMAQA,
-    //Custom Load
-    L64,
-    L128,
-    L320 
+    SMAQA
     
   } fu_op;
 

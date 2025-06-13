@@ -56,6 +56,7 @@ bmarks = \
 	pmp \
 	mnist \
 	golden_mnist \
+	test_instructions \
 
 #--------------------------------------------------------------------
 # Build rules

@@ -1,6 +1,6 @@
 
 
-module mult
+module mult_zpn
   import ariane_pkg::*;
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty

@@ -1,0 +1,83 @@
+===== Searching for 'sra16' =====
+52700:    425a:	50010077          	sra16	zero,sp,zero
+
+===== Searching for 'srai16' =====
+
+===== Searching for 'srl16' =====
+26102:80014d30:	52ca00f7          	srl16	ra,s4,a2
+
+===== Searching for 'srli16' =====
+
+===== Searching for 'sll16' =====
+
+===== Searching for 'slli16' =====
+
+===== Searching for 'ksll16' =====
+
+===== Searching for 'kslli16' =====
+
+===== Searching for 'kslra16' =====
+
+===== Searching for 'sra8' =====
+
+===== Searching for 'srai8' =====
+
+===== Searching for 'srl8' =====
+
+===== Searching for 'srli8' =====
+
+===== Searching for 'sll8' =====
+
+===== Searching for 'slli8' =====
+
+===== Searching for 'ksll8' =====
+
+===== Searching for 'kslli8' =====
+
+===== Searching for 'kslra8' =====
+
+===== Searching for 'khm16' =====
+
+===== Searching for 'khmx16' =====
+
+===== Searching for 'khm8' =====
+
+===== Searching for 'khmx8' =====
+
+===== Searching for 'sclip16' =====
+
+===== Searching for 'uclip16' =====
+
+===== Searching for 'kabs16' =====
+
+===== Searching for 'clrs16' =====
+
+===== Searching for 'clz16' =====
+
+===== Searching for 'clo16' =====
+
+===== Searching for 'swap16' =====
+
+===== Searching for 'sclip8' =====
+
+===== Searching for 'uclip8' =====
+
+===== Searching for 'kabs8' =====
+82120:   14d0e:	ad010077          	kabs8	zero,sp
+
+===== Searching for 'clrs8' =====
+
+===== Searching for 'clz8' =====
+
+===== Searching for 'clo8' =====
+
+===== Searching for 'swap8' =====
+
+===== Searching for 'smmul' =====
+
+===== Searching for 'kmmac' =====
+
+===== Searching for 'kmmsb' =====
+
+===== Searching for 'kwmmul' =====
+

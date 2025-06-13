@@ -15,7 +15,7 @@
 //
 
 
-module multiplier
+module multiplier_zpsf
   import ariane_pkg::*;
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty
@@ -152,7 +152,6 @@ module multiplier
       {operand_b_i[riscv::XLEN-1] & sign_b, operand_b_i}
   );
 
-  if (cva6_config_pkg::cva6_cfg::RVP) begin
 
     //CHANGED: added for SIMD 16 bits instruction
     // 16bits SIMD Multpilication
@@ -358,7 +357,7 @@ module multiplier
         logic [riscv::XLEN:0] max_val_32;
         logic [riscv::XLEN:0] min_val_32;
         logic [2*riscv::XLEN:0] max_val_64;
-        logic [2*riscv::XLEN:0] max_val_64;
+        logic [2*riscv::XLEN:0] min_val_64;
 
         assign max_val_32 = 33'h7FFFFFFF;
         assign min_val_32 = 33'h80000000;
@@ -432,7 +431,6 @@ module multiplier
 
         assign overflow_d = (is_mul_add && (p_ov || n_ov)) || (is_mul_sub && (p_ov || n_ov)) || (is_mul_double && saturation);
 
-  end
 
   assign operator_d = operation_i;
 
