@@ -11,3 +11,19 @@ void int32_to_binary_str(uint32_t value, char* out_str) {
 int32_t sign_extend_17(int32_t val) {
     return (val & (1 << 16)) ? (val | ~0x1FFFF) : val;
 }
+
+int32_t sign_extend_9(int32_t val) {
+    return (val & (1 << 8)) ? (val | ~0x1FF) : val;
+}
+
+int16_t saturate_16(int32_t val) {
+    if (val > 32767) return 32767;
+    if (val < -32768) return -32768;
+    return (int16_t)val;
+}
+
+int8_t saturate_8(int32_t val) {
+    if (val > 127) return 127;
+    if (val < -128) return -128;
+    return (int8_t)val;
+}

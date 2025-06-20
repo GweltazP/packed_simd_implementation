@@ -1,30 +1,33 @@
+#ifndef SLL16_H
+#define SLL16_H
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include "print_bits.h"
 
-uint32_t sra16_sw(uint32_t a, uint32_t b) {
-    int16_t a1 = (int16_t)(a & 0xFFFF);
-    int16_t a2 = (int16_t)((a >> 16) & 0xFFFF);
+uint32_t sll16_sw(uint32_t a, uint32_t b) {
+    uint16_t a1 = (uint16_t)(a & 0xFFFF);
+    uint16_t a2 = (uint16_t)((a >> 16) & 0xFFFF);
     uint8_t shift = b & 0xF;
 
-    int32_t r1 = a1 >> shift;
-    int32_t r2 = a2 >> shift;
+    uint16_t r1 = a1 << shift;
+    uint16_t r2 = a2 << shift;
 
-    return ((uint16_t)r2 << 16) | ((uint16_t)r1);
+    return ((uint32_t)r2 << 16) | r1;
 }
 
-int run_single_sra16_test(int test_num) {
+int run_single_sll16_test(int test_num) {
     uint32_t a = ((uint32_t)rand() << 16) | (uint32_t)rand();
     uint32_t b = ((uint32_t)rand() << 16) | (uint32_t)rand();
     b = (b & 0xF);
 
     volatile int result;
 
-    uint32_t expected = sra16_sw(a, b);
+    uint32_t expected = sll16_sw(a, b);
     __asm__ volatile (
-        "sra16 %0, %1, %2"
+        "sll16 %0, %1, %2"
         : "=r" (result)
         : "r" (a), "r" (b)
     );
@@ -40,8 +43,10 @@ int run_single_sra16_test(int test_num) {
 
     int pass = (result == expected);
 
-    printf("Test %3d: %-10s %s (\n\rResult: %s, \n\rExpected: %s, \n\ra=%s, \n\rb=%2d)\n\r",
-           test_num, "sra16", pass ? "PASS" : "FAIL", result_bit, expected_bit, a_bit, b);
+    // printf("Test %3d: %-10s %s (\n\rResult: %s, \n\rExpected: %s, \n\ra=%s, \n\rb=%2d)\n\r",
+    //        test_num, "sll16", pass ? "PASS" : "FAIL", result_bit, expected_bit, a_bit, b);
 
     return pass;
 }
+
+#endif // SLL16_H

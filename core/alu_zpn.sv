@@ -365,7 +365,10 @@ module alu_zpn
 
     // TODO: this can probably optimized significantly
     logic                simd_shift_left; // should we shift left
+    logic                simd_shift_saturation;
     logic                simd_shift_arithmetic;
+    logic                shift_16_null;
+    logic                shift_8_null;
     logic          [3:0] simd_shift_rounding; //Rounding shift operations 
     logic          [3:0] simd_shift_temp_amt16; 
     logic          [2:0] simd_shift_temp_amt8; 
@@ -386,6 +389,15 @@ module alu_zpn
     logic         [31:0] simd_shift_right_result8;  ; // Final result of SIMD shift right operation (8 bits elements)
     logic         [31:0] simd_shift_right_result16; // Final result of SIMD shift right operation (16 bits elements)
 
+    logic         [39:0] simd_shift_right_result8_round_temp;
+    logic         [35:0] simd_shift_right_result16_round_temp;
+
+    logic         [31:0] simd_shift_right_result8_round;
+    logic         [31:0] simd_shift_right_result16_round;
+
+    logic         [31:0] simd_shift_right_result8_temp;
+    logic         [31:0] simd_shift_right_result16_temp;
+
     logic         [31:0] simd_shift_left_result8; // Final result of SIMD shift left operation (8 bits elements)
     logic         [31:0] simd_shift_left_result16; // Final result of SIMD shift left operation (16 bits elements)
 
@@ -394,6 +406,8 @@ module alu_zpn
     logic         [7:0]  temp_mask8;
     logic         [15:0] temp_mask16;
 
+    logic         [7:0]  round_8 = 8'b00000001;
+    logic         [15:0] round_16 = 16'b0000000000000001;
 
     // Select shift left or right  
     always_comb begin
@@ -401,6 +415,8 @@ module alu_zpn
 
         unique case (fu_data_i.operation)
             SLL16, KSLL16, KSLRA16, KSLRA16_U, SLL8, KSLL8, KSLRA8, KSLRA8_U, SLLI16, KSLLI16, SLLI8, KSLLI8 : simd_shift_left = 1'b1; //Shift left   //CHANGED: Add shift with immediate          
+            KSLRA16, KSLRA16_U: simd_shift_left = ~fu_data_i.operand_b[4];
+            KSLRA8, KSLRA8_U : simd_shift_left = ~fu_data_i.operand_b[3];
             default: ;
         endcase
     end
@@ -410,7 +426,9 @@ module alu_zpn
         simd_shift_arithmetic = 1'b0; //Logical shift 
 
         unique case (fu_data_i.operation)
-            SRA16, SRA16_U, KSLRA16, KSLRA16_U,SRA8, SRA8_U, KSLRA8, KSLRA8_U, SRAI16, SRAI16_U, SRAI8, SRAI8_U : simd_shift_arithmetic = 1'b1; //Arithmetic shift  //CHANGED: Add shift with immediate          
+            SRA16, SRA16_U,SRA8, SRA8_U, SRAI16, SRAI16_U, SRAI8, SRAI8_U : simd_shift_arithmetic = 1'b1; //Arithmetic shift  //CHANGED: Add shift with immediate
+            KSLRA16, KSLRA16_U : simd_shift_arithmetic = fu_data_i.operand_b[4];
+            KSLRA8, KSLRA8_U : simd_shift_arithmetic = fu_data_i.operand_b[3];
             default: ;
         endcase
     end    
@@ -435,12 +453,16 @@ module alu_zpn
         endcase
     end
 
+    assign shift_8_null = shift_amt[0]|shift_amt[1]|shift_amt[2];
+    assign shift_16_null = shift_amt[0]|shift_amt[1]|shift_amt[2]|shift_amt[3];
+
+
     // choose the bit reversed or the normal input for shift operand a
     assign simd_shift_op_a = simd_shift_left ? operand_a_rev32 : fu_data_i.operand_a[31:0];
     
     //
-    assign simd_shift_temp_amt8 = simd_shift_amt[2:0] - simd_shift_rounding[2:0];
-    assign simd_shift_temp_amt16 = simd_shift_amt[3:0] - simd_shift_rounding[3:0];
+    assign simd_shift_temp_amt8 = ~shift_8_null ? 3'b000 : simd_shift_amt[2:0] - simd_shift_rounding[2:0];
+    assign simd_shift_temp_amt16 = ~shift_16_null ? 4'b000 : simd_shift_amt[3:0] - simd_shift_rounding[3:0];
     
     // Perform right shift 
     assign simd_shift_right8   = $unsigned($unsigned(simd_shift_op_a) >>> simd_shift_temp_amt8);
@@ -497,9 +519,25 @@ module alu_zpn
     assign simd_sign_mask16 = {inv_mask16[31:16] & {16{simd_shift_op_a[31]}},inv_mask16[15:0] & {16{simd_shift_op_a[15]}}};
 
     //By applying an OR operation with this mask on the result of the previous mask application, the sign bits get correctly inserted and an arithmetic shift is realized
-    assign simd_shift_right_result8 = masked_simd_shift_right_result8 | (simd_sign_mask8 & {32{simd_shift_arithmetic}});
-    assign simd_shift_right_result16 = masked_simd_shift_right_result16 | (simd_sign_mask16 & {32{simd_shift_arithmetic}});
+    assign simd_shift_right_result8_temp = masked_simd_shift_right_result8 | (simd_sign_mask8 & {32{simd_shift_arithmetic}});
+    assign simd_shift_right_result16_temp = masked_simd_shift_right_result16 | (simd_sign_mask16 & {32{simd_shift_arithmetic}});
     
+    assign simd_shift_right_result8_round_temp = {$unsigned({1'b0, simd_shift_right_result8_temp[31] && simd_shift_arithmetic, simd_shift_right_result8_temp[31:24]})+round_8,
+                                                $unsigned({1'b0, simd_shift_right_result8_temp[23] && simd_shift_arithmetic, simd_shift_right_result8_temp[23:16]})+round_8,
+                                                $unsigned({1'b0, simd_shift_right_result8_temp[15] && simd_shift_arithmetic, simd_shift_right_result8_temp[15:8]})+round_8,
+                                                $unsigned({1'b0, simd_shift_right_result8_temp[7] && simd_shift_arithmetic, simd_shift_right_result8_temp[7:0]})+round_8};
+    assign simd_shift_right_result16_round_temp = {$unsigned({1'b0, simd_shift_right_result16_temp[31] && simd_shift_arithmetic, simd_shift_right_result16_temp[31:16]})+round_16,
+                                                $unsigned({1'b0, simd_shift_right_result16_temp[15] && simd_shift_arithmetic, simd_shift_right_result16_temp[15:0]})+round_16};
+
+    assign simd_shift_right_result8_round = {simd_shift_right_result8_round_temp[38:31],
+                                            simd_shift_right_result8_round_temp[28:21],
+                                            simd_shift_right_result8_round_temp[18:11],
+                                            simd_shift_right_result8_round_temp[8:1]};
+    assign simd_shift_right_result16_round = {simd_shift_right_result16_round_temp[34:19],
+                                        simd_shift_right_result16_round_temp[16:1]};
+
+    assign simd_shift_right_result8 = simd_shift_rounding[0] && shift_8_null ? simd_shift_right_result8_round : simd_shift_right_result8_temp;
+    assign simd_shift_right_result16 = simd_shift_rounding[0] && shift_16_null ? simd_shift_right_result16_round : simd_shift_right_result16_temp;
 
     // bit reverse the shift_right_result for left shifts
     genvar l;

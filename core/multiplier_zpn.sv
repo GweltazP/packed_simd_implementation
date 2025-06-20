@@ -82,7 +82,7 @@ module multiplier_zpn
   logic [riscv::XLEN*2-1:0] simd_mult_result_q, simd_mult_result_d;
   logic [riscv::XLEN*2-1:0] simd_sat_mult_result_q, simd_sat_mult_result_d;
   logic [riscv::XLEN:0] simd_smaqa_result_d, simd_smaqa_result_q;
-  logic overflow_d, overflow_q;
+  logic overflow_d, overflow_q, overflow_msw_d, overflow_msw_q;
 
   // control registers
   logic sign_a, sign_b;
@@ -428,7 +428,7 @@ module multiplier_zpn
                             (is_mul_sub) ? temp32_sub[riscv::XLEN:1] :
                             (is_mul_double) ? temp32_double : '0;
 
-        assign overflow_d = (is_mul_add && (p_ov || n_ov)) || (is_mul_sub && (p_ov || n_ov)) || (is_mul_double && saturation);
+        assign overflow_msw_d = (is_mul_add && (p_ov || n_ov)) || (is_mul_sub && (p_ov || n_ov)) || (is_mul_double && saturation);
 
 
   assign operator_d = operation_i;
@@ -447,7 +447,7 @@ module multiplier_zpn
                                                                                                         //CHANGED: added overflow flag
       SMMUL, SMMUL_U, KMMAC, KMMAC_U, KMMSB, KMMSB_U, KWMMUL, KWMMUL_U: begin
                                                                             result_o = mult_result_msw_q; //CHANGED: added for SIMD
-                                                                            overflow_o = overflow_q;
+                                                                            overflow_o = overflow_msw_q;
                                                                         end
 
       // MUL performs an XLEN-bit×XLEN-bit multiplication and places the lower XLEN bits in the destination register
@@ -479,6 +479,7 @@ module multiplier_zpn
       simd_smaqa_result_q <= '0; 
       simd_sat_mult_result_q <= '0;   //CHANGED: added for SIMD
       overflow_q    <= '0;            //CHANGED: added for SIMD
+      overflow_msw_q <= '0;           //CHANGED: added for SIMD
       mult_result_msw_q <= '0;        //CHANGED: added for SIMD
     end else begin
       // Input silencing
@@ -491,6 +492,7 @@ module multiplier_zpn
       simd_smaqa_result_q <= simd_smaqa_result_d;
       simd_sat_mult_result_q <= simd_sat_mult_result_d; //CHANGED: added for SIMD
       overflow_q    <= overflow_d;                      //CHANGED: added for SIMD
+      overflow_msw_q    <= overflow_msw_d;              //CHANGED: added for SIMD
       mult_result_msw_q <= mult_result_msw_d;           //CHANGED: added for SIMD
     end
   end
