@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 void int32_to_binary_str(uint32_t value, char* out_str);
 int32_t sign_extend_9(int32_t val);

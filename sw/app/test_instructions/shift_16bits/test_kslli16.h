@@ -4,20 +4,26 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include "print_bits.h"
 
 uint32_t kslli16_sw(uint32_t a, uint32_t imm) {
-    int16_t a1 = (int16_t)(a & 0xFFFF);
-    int16_t a2 = (int16_t)((a >> 16) & 0xFFFF);
+    int32_t a1 = (int16_t)(a & 0xFFFF);
+    int32_t a2 = (int16_t)((a >> 16) & 0xFFFF);
     uint8_t shift = imm & 0xF;
 
-    int32_t r1 = (int32_t)a1 << shift;
-    int32_t r2 = (int32_t)a2 << shift;
+    int32_t s1 = a1;
+    int32_t s2 = a2;
 
-    int16_t s1 = saturate_16(r1);
-    int16_t s2 = saturate_16(r2);
+    if (shift != 0) {
+        int32_t r1 = ((uint32_t)a1) << shift;
+        int32_t r2 = ((uint32_t)a2) << shift;
 
-    return ((uint32_t)(uint16_t)s2 << 16) | ((uint16_t)s1);
+        s1 = saturate_16(r1);
+        s2 = saturate_16(r2);
+    }
+
+    return ((uint32_t)(uint16_t)s2 << 16) | (uint16_t)s1;
 }
 
 int run_single_kslli16_test(int test_num) {

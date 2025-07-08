@@ -179,7 +179,7 @@ module ex_stage_zpsf
 
   alu_zpsf #(
       .CVA6Cfg(CVA6Cfg)
-  ) alu_zpsf_i (
+  ) alu_i (
       .clk_i,
       .rst_ni,
       .fu_data_i       (alu_data),
@@ -262,7 +262,7 @@ module ex_stage_zpsf
 
   mult_zpsf #(
       .CVA6Cfg(CVA6Cfg)
-  ) i_mult_zpsf (
+  ) i_mult (
       .clk_i,
       .rst_ni,
       .flush_i,
@@ -272,7 +272,7 @@ module ex_stage_zpsf
       .operand_e      (mult_operand_e),
       .result_o       (mult_result),
       // .result_simd_o  (mult_result_simd),   //CHANGED: added for SIMD
-      .overflow_o     (overflow),           //CHANGED: added for SIMD
+      .overflow_o     (overflow),              //CHANGED: added for SIMD
       // .is_64bits_o    (is_64bits),          //CHANGED: added for SIMD
       .mult_valid_o   (mult_valid),
       .mult_ready_o   (mult_ready),

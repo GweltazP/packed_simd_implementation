@@ -58,7 +58,7 @@ module mult_zpn
   // ---------------------
   multiplier_zpn #(
       .CVA6Cfg(CVA6Cfg)
-  ) i_multiplier_zpn (
+  ) i_multiplier (
       .clk_i,
       .rst_ni,
       .trans_id_i     (fu_data_i.trans_id),

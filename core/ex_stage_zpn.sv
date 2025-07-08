@@ -176,7 +176,7 @@ module ex_stage_zpn
 
   alu_zpn #(
       .CVA6Cfg(CVA6Cfg)
-  ) alu_zpn_i (
+  ) alu_i (
       .clk_i,
       .rst_ni,
       .fu_data_i       (alu_data),
@@ -257,7 +257,7 @@ module ex_stage_zpn
 
   mult_zpn #(
       .CVA6Cfg(CVA6Cfg)
-  ) i_mult_zpn (
+  ) i_mult (
       .clk_i,
       .rst_ni,
       .flush_i,

@@ -58,7 +58,7 @@ module mult_zpsf
   // ---------------------
   multiplier_zpsf #(
       .CVA6Cfg(CVA6Cfg)
-  ) i_multiplier_zpsf (
+  ) i_multiplier (
       .clk_i,
       .rst_ni,
       .trans_id_i     (fu_data_i.trans_id),

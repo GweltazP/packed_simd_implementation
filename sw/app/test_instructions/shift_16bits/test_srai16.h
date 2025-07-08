@@ -31,7 +31,7 @@ int run_single_srai16_test(int test_num) {
     __asm__ volatile (
         "srai16 %0, %1, %2"
         : "=r" (result)
-        : "r" (a), "u04" (imm)
+        : "r" (a), "i" (imm)
     );
 
     int pass = (result == expected);

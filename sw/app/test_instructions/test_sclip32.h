@@ -64,13 +64,13 @@ static inline int run_single_sclip32_test(int test_num)
            "  expected_bit  : %s\n\r"
            "  expected_val  : %11d (signed)\n\r"
            "  a             : 0x%08X\n\r"
-           "  a_bit         : %11d (signed)\n\r"
+           "  a_bit         : %s (signed)\n\r"
            "  clip max      : %11d\n\r"
            "  clip min      : %11d)\n\r",
            test_num, "sclip32", pass ? "PASS" : "FAIL",
-           (uint32_t)result,   result_bit,   result,
-           expected,          expected_bit, (int32_t)expected,
-           (uint32_t)a,        a_bit,
+           result_bit, result,
+           expected_bit, expected,
+           (uint32_t)a, a_bit,
            (1 << imm) - 1, -(1 << imm));
 
     return pass;

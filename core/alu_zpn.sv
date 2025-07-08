@@ -372,10 +372,19 @@ module alu_zpn
     logic          [3:0] simd_shift_rounding; //Rounding shift operations 
     logic          [3:0] simd_shift_temp_amt16; 
     logic          [2:0] simd_shift_temp_amt8; 
+    logic          [3:0] simd_saturation_true_8;
+    logic          [1:0] simd_saturation_true_16;
+    logic          [7:0] simd_min8_sat = 8'b10000000, simd_max8_sat = 8'b01111111;
+    logic         [15:0] simd_min16_sat = 16'b1000000000000000, simd_max16_sat =16'b0111111111111111;
 
     riscv::xlen_t        simd_shift_amt; // amount of shift, to the right
 
     logic         [31:0] simd_shift_op_a; // input to the shift operation
+
+    logic         [31:0] simd_shift_temp8_op_a;
+    logic         [31:0] simd_shift_temp16_op_a;
+    logic         [7:0]  simd_shift_sat_mask8;
+    logic         [15:0] simd_shift_sat_mask16; 
 
     logic         [31:0] simd_shift_result8;
     logic         [31:0] simd_shift_result16;
@@ -401,6 +410,9 @@ module alu_zpn
     logic         [31:0] simd_shift_left_result8; // Final result of SIMD shift left operation (8 bits elements)
     logic         [31:0] simd_shift_left_result16; // Final result of SIMD shift left operation (16 bits elements)
 
+    logic         [31:0] simd_shift_left_result8_sat; // Final result of SIMD shift left saturation operation (8 bits elements)
+    logic         [31:0] simd_shift_left_result16_sat; // Final result of SIMD shift left saturation operation (16 bits elements)
+
     logic         [31:0] simd_mask8, simd_sign_mask8, simd_mask16, simd_sign_mask16, inv_mask8, inv_mask16; //Unwanted bits mask and sign mask 
 
     logic         [7:0]  temp_mask8;
@@ -414,9 +426,9 @@ module alu_zpn
         simd_shift_left = 1'b0; //Shift right
 
         unique case (fu_data_i.operation)
-            SLL16, KSLL16, KSLRA16, KSLRA16_U, SLL8, KSLL8, KSLRA8, KSLRA8_U, SLLI16, KSLLI16, SLLI8, KSLLI8 : simd_shift_left = 1'b1; //Shift left   //CHANGED: Add shift with immediate          
-            KSLRA16, KSLRA16_U: simd_shift_left = ~fu_data_i.operand_b[4];
-            KSLRA8, KSLRA8_U : simd_shift_left = ~fu_data_i.operand_b[3];
+            SLL16, KSLL16, SLL8, KSLL8 : simd_shift_left = 1'b1; //Shift left   //CHANGED: Add shift with immediate          
+            KSLRA16, KSLRA16_U: simd_shift_left = ~fu_data_i.operand_b[31];
+            KSLRA8, KSLRA8_U : simd_shift_left = ~fu_data_i.operand_b[31];
             default: ;
         endcase
     end
@@ -426,9 +438,9 @@ module alu_zpn
         simd_shift_arithmetic = 1'b0; //Logical shift 
 
         unique case (fu_data_i.operation)
-            SRA16, SRA16_U,SRA8, SRA8_U, SRAI16, SRAI16_U, SRAI8, SRAI8_U : simd_shift_arithmetic = 1'b1; //Arithmetic shift  //CHANGED: Add shift with immediate
-            KSLRA16, KSLRA16_U : simd_shift_arithmetic = fu_data_i.operand_b[4];
-            KSLRA8, KSLRA8_U : simd_shift_arithmetic = fu_data_i.operand_b[3];
+            SRA16, SRA16_U,SRA8, SRA8_U : simd_shift_arithmetic = 1'b1; //Arithmetic shift
+            KSLRA16, KSLRA16_U : simd_shift_arithmetic = fu_data_i.operand_b[31];
+            KSLRA8, KSLRA8_U : simd_shift_arithmetic = fu_data_i.operand_b[31];
             default: ;
         endcase
     end    
@@ -438,20 +450,35 @@ module alu_zpn
         simd_shift_rounding = 4'b0; //No rounding
 
         unique case (fu_data_i.operation)
-            SRA16_U, SRL16_U, KSLRA16_U, SRA8_U, SRL8_U, KSLRA8_U, SRAI16_U, SRLI16_U, SRAI8_U, SRLI8_U : simd_shift_rounding= 4'b0001; //Rounding operation    //CHANGED: Add shift with immediate          
+            SRA16_U, SRL16_U, SRA8_U, SRL8_U : simd_shift_rounding= 4'b0001; //Rounding operation
+            KSLRA16_U : simd_shift_rounding = {3'b000, fu_data_i.operand_b[31]};
+            KSLRA8_U : simd_shift_rounding = {3'b000, fu_data_i.operand_b[31]};
             default: ;
         endcase
     end
 
-    // Select shift immediate or register
+    // Saturation shift operations
+    always_comb begin
+        simd_shift_saturation = 1'b0; //No Saturation
+
+        unique case (fu_data_i.operation)
+            KSLL16, KSLL8 : simd_shift_saturation = 1'b1; //Saturating operation
+            KSLRA16, KSLRA16_U : simd_shift_saturation = ~fu_data_i.operand_b[31];
+            KSLRA8, KSLRA8_U : simd_shift_saturation = ~fu_data_i.operand_b[31];
+            default: ;
+        endcase
+    end
+
+    // Shift amount selection
     always_comb begin
         simd_shift_amt = fu_data_i.operand_b;
 
         unique case (fu_data_i.operation)
-            SRAI16, SRAI16_U, SRLI16, SRLI16_U, SLLI16, KSLLI16, SRAI8, SRAI8_U, SRLI8, SRLI8_U, SLLI8, KSLLI8 : simd_shift_amt = fu_data_i.imm; //Immediate shift //CHANGED: Add shift with immediate
+            KSLRA16, KSLRA16_U : simd_shift_amt = fu_data_i.operand_b[31] ? ~fu_data_i.operand_b+1'b1 : fu_data_i.operand_b;
+            KSLRA8, KSLRA8_U : simd_shift_amt = fu_data_i.operand_b[31] ? ~fu_data_i.operand_b+1'b1 : fu_data_i.operand_b;
             default: ;
         endcase
-    end
+    end    
 
     assign shift_8_null = shift_amt[0]|shift_amt[1]|shift_amt[2];
     assign shift_16_null = shift_amt[0]|shift_amt[1]|shift_amt[2]|shift_amt[3];
@@ -464,6 +491,72 @@ module alu_zpn
     assign simd_shift_temp_amt8 = ~shift_8_null ? 3'b000 : simd_shift_amt[2:0] - simd_shift_rounding[2:0];
     assign simd_shift_temp_amt16 = ~shift_16_null ? 4'b000 : simd_shift_amt[3:0] - simd_shift_rounding[3:0];
     
+
+    //
+    always_comb begin
+
+        //Modifier les mask: pour le positif pour qu'il n'y ait pas saturation il faut que les bits 
+        //shifter soient tous égal à 0, pour le négatif il faut que les bits shifter soient tous égaux à 1
+        //Etape 1: on applique le mask pour ne récupérer que les bits qui sont shiftés
+        //Etape 2: on regarde le bit de signe
+        //Etape 3.pos: on fait un OR sur tous les bits shiftés pour savoir si on a un bit à 1, si oui on sature
+        //Etape 3.neg: on fait un AND sur tous les bits shiftés pour savoir si on a un bit à 0, si oui on sature
+    
+        simd_shift_sat_mask8 =
+        (simd_shift_temp_amt8 == 0) ? 8'b00000001 :
+        (simd_shift_temp_amt8 == 1) ? 8'b00000011 :
+        (simd_shift_temp_amt8 == 2) ? 8'b00000111 :
+        (simd_shift_temp_amt8 == 3) ? 8'b00001111 :
+        (simd_shift_temp_amt8 == 4) ? 8'b00011111 :
+        (simd_shift_temp_amt8 == 5) ? 8'b00111111 :
+        (simd_shift_temp_amt8 == 6) ? 8'b01111111 :
+        (simd_shift_temp_amt8 == 7) ? 8'b11111111 :
+        8'b00000001;
+
+        simd_shift_sat_mask16 = 
+        (simd_shift_temp_amt16 == 0) ?  16'b0000000000000001 :
+        (simd_shift_temp_amt16 == 1) ?  16'b0000000000000011 :
+        (simd_shift_temp_amt16 == 2) ?  16'b0000000000000111 :
+        (simd_shift_temp_amt16 == 3) ?  16'b0000000000001111 :
+        (simd_shift_temp_amt16 == 4) ?  16'b0000000000011111 :
+        (simd_shift_temp_amt16 == 5) ?  16'b0000000000111111 :
+        (simd_shift_temp_amt16 == 6) ?  16'b0000000001111111 :
+        (simd_shift_temp_amt16 == 7) ?  16'b0000000011111111 :
+        (simd_shift_temp_amt16 == 8) ?  16'b0000000111111111 :
+        (simd_shift_temp_amt16 == 9) ?  16'b0000001111111111 :
+        (simd_shift_temp_amt16 == 10) ? 16'b0000011111111111 :
+        (simd_shift_temp_amt16 == 11) ? 16'b0000111111111111 :
+        (simd_shift_temp_amt16 == 12) ? 16'b0001111111111111 :
+        (simd_shift_temp_amt16 == 13) ? 16'b0011111111111111 :
+        (simd_shift_temp_amt16 == 14) ? 16'b0111111111111111 :
+        (simd_shift_temp_amt16 == 15) ? 16'b1111111111111111 :
+        16'b0000000000000001;
+    end
+
+    assign simd_shift_temp8_op_a = {
+                                    simd_shift_op_a[24] ? (simd_shift_op_a[31:24] | ~simd_shift_sat_mask8) : (simd_shift_op_a[31:24] & simd_shift_sat_mask8),
+                                    simd_shift_op_a[16] ? (simd_shift_op_a[23:16] | ~simd_shift_sat_mask8) : (simd_shift_op_a[23:16] & simd_shift_sat_mask8),
+                                    simd_shift_op_a[8] ? (simd_shift_op_a[15:8] | ~simd_shift_sat_mask8) : (simd_shift_op_a[15:8] & simd_shift_sat_mask8),
+                                    simd_shift_op_a[0] ? (simd_shift_op_a[7:0] | ~simd_shift_sat_mask8) : (simd_shift_op_a[7:0] & simd_shift_sat_mask8)
+                                    };
+
+    assign simd_shift_temp16_op_a = {
+                                    simd_shift_op_a[16] ? (simd_shift_op_a[31:16] | ~simd_shift_sat_mask16) : (simd_shift_op_a[31:16] & simd_shift_sat_mask16), 
+                                    simd_shift_op_a[0] ? (simd_shift_op_a[15:0] | ~simd_shift_sat_mask16) : (simd_shift_op_a[15:0] & simd_shift_sat_mask16)
+                                    };
+
+    assign simd_saturation_true_8 = {
+                                    simd_shift_op_a[24] ? ~(&simd_shift_temp8_op_a[31:24]) : (|simd_shift_temp8_op_a[31:24]),
+                                    simd_shift_op_a[16] ? ~(&simd_shift_temp8_op_a[23:16]) : (|simd_shift_temp8_op_a[23:16]),
+                                    simd_shift_op_a[8] ? ~(&simd_shift_temp8_op_a[15:8]) : (|simd_shift_temp8_op_a[15:8]),
+                                    simd_shift_op_a[0] ? ~(&simd_shift_temp8_op_a[7:0]) : (|simd_shift_temp8_op_a[7:0])
+                                    };
+
+    assign simd_saturation_true_16 ={
+                                    simd_shift_op_a[16] ? ~(&simd_shift_temp16_op_a[31:16]) :(|simd_shift_temp16_op_a[31:16]),
+                                    simd_shift_op_a[0] ? ~(&simd_shift_temp16_op_a[15:0]) :(|simd_shift_temp16_op_a[15:0])
+                                    };
+
     // Perform right shift 
     assign simd_shift_right8   = $unsigned($unsigned(simd_shift_op_a) >>> simd_shift_temp_amt8);
     assign simd_shift_right16  = $unsigned($unsigned(simd_shift_op_a) >>> simd_shift_temp_amt16);
@@ -550,9 +643,28 @@ module alu_zpn
 
 
     endgenerate
+    
 
-    assign simd_shift_result8 = simd_shift_left ? simd_shift_left_result8 : simd_shift_right_result8;
-    assign simd_shift_result16 = simd_shift_left ? simd_shift_left_result16 : simd_shift_right_result16;
+    assign simd_shift_left_result8_sat = {
+                                        ((simd_saturation_true_8[0]) ? ((simd_shift_op_a[0]) ? simd_min8_sat : simd_max8_sat) : simd_shift_left_result8[31:24]),
+                                        ((simd_saturation_true_8[1]) ? ((simd_shift_op_a[8]) ? simd_min8_sat : simd_max8_sat) : simd_shift_left_result8[23:16]),
+                                        ((simd_saturation_true_8[2]) ? ((simd_shift_op_a[16]) ? simd_min8_sat : simd_max8_sat) : simd_shift_left_result8[15:8]),
+                                        ((simd_saturation_true_8[3]) ? ((simd_shift_op_a[24]) ? simd_min8_sat : simd_max8_sat) : simd_shift_left_result8[7:0])
+                                        };
+
+    assign simd_shift_left_result16_sat = {
+                                        ((simd_saturation_true_16[0]) ? ((simd_shift_op_a[0]) ? simd_min16_sat : simd_max16_sat) : simd_shift_left_result16[31:16]),
+                                        ((simd_saturation_true_16[1]) ? ((simd_shift_op_a[16]) ? simd_min16_sat : simd_max16_sat) : simd_shift_left_result16[15:0])
+                                        };
+
+    assign simd_shift_result8 = (simd_shift_left && simd_shift_saturation) ? simd_shift_left_result8_sat :
+                                simd_shift_left                            ? simd_shift_left_result8 :
+                                                                            simd_shift_right_result8;
+
+    assign simd_shift_result16 = (simd_shift_left && simd_shift_saturation) ? simd_shift_left_result16_sat :
+                                simd_shift_left                            ? simd_shift_left_result16 :
+                                                                            simd_shift_right_result16;
+
 
     // ------------
     // SIMD Comparisons
@@ -664,86 +776,85 @@ module alu_zpn
     // ------------
     // Cliping & SMID Cliping instructions 
     // ------------
-    
-    logic [31:0]   clip_result; // Clip operation final result 
+
+    logic [31:0]   s_result32;
+    logic [15:0]   s_result16_h, s_result16_l;
+    logic [7:0]    s_result8_0, s_result8_1, s_result8_2, s_result8_3;
+    logic [31:0]   u_result32;
+    logic [15:0]   u_result16_h, u_result16_l;
+    logic [7:0]    u_result8_0, u_result8_1, u_result8_2, u_result8_3;
         
-    always_comb begin
-    
+    logic [3:0]    p_ov_8;
+    logic [3:0]    n_ov_8;
+    logic [3:0]    u_ov_8;
+    logic [1:0]    p_ov_16;
+    logic [1:0]    n_ov_16;
+    logic [1:0]    u_ov_16;
+    logic          p_ov_32;
+    logic          n_ov_32;
+    logic          u_ov_32;
+    logic [7:0]    limit_clip_8;
+    logic [7:0]    n_limit_clip_8;
+    logic [15:0]   limit_clip_16;
+    logic [15:0]   n_limit_clip_16;
+    logic [31:0]   limit_clip_32;
+    logic [31:0]   n_limit_clip_32;
         
-        logic [3:0]    p_ov;
-        logic [3:0]    n_ov;
-        logic [3:0]    u_ov;
-        logic [32:0]   limit_clip;
-        logic [32:0]   n_limit_clip;
+    assign limit_clip_32 = (1 << fu_data_i.operand_b[4:0])- 1;
+    assign n_limit_clip_32 = ~limit_clip_32 + 2;
+    assign p_ov_32 = ($signed(fu_data_i.operand_a) > $signed(limit_clip_32));
+    assign n_ov_32 = ($signed(fu_data_i.operand_a) < $signed(n_limit_clip_32));
+    assign u_ov_32 = ($signed(fu_data_i.operand_a) < $signed({32'b00000000000000000000000000000000}));
+
+    assign limit_clip_16 = (1 << fu_data_i.operand_b[3:0])- 1;
+    assign n_limit_clip_16 = ~limit_clip_16 + 2;
+    assign p_ov_16[1] = ($signed(fu_data_i.operand_a[31:16]) > $signed(limit_clip_16));
+    assign p_ov_16[0] = ($signed(fu_data_i.operand_a[15:0]) > $signed(limit_clip_16));
+    assign n_ov_16[1] = ($signed(fu_data_i.operand_a[31:16]) < $signed(n_limit_clip_16));
+    assign n_ov_16[0] = ($signed(fu_data_i.operand_a[15:0]) < $signed(n_limit_clip_16));
+    assign u_ov_16[1] = ($signed(fu_data_i.operand_a[31:16]) < $signed({16'b0000000000000000}));
+    assign u_ov_16[0] = ($signed(fu_data_i.operand_a[15:0]) < $signed({16'b0000000000000000}));
+
+    assign limit_clip_8 = (1 << fu_data_i.operand_b[2:0])- 1;
+    assign n_limit_clip_8 = ~limit_clip_8 + 2;
+    assign p_ov_8[3] = ($signed(fu_data_i.operand_a[31:24]) > $signed(limit_clip_8));
+    assign p_ov_8[2] = ($signed(fu_data_i.operand_a[23:16]) > $signed(limit_clip_8));
+    assign p_ov_8[1] = ($signed(fu_data_i.operand_a[15:8]) > $signed(limit_clip_8));
+    assign p_ov_8[0] = ($signed(fu_data_i.operand_a[7:0]) > $signed(limit_clip_8));
+    assign n_ov_8[3] = ($signed(fu_data_i.operand_a[31:24]) < $signed(n_limit_clip_8));
+    assign n_ov_8[2] = ($signed(fu_data_i.operand_a[23:16]) < $signed(n_limit_clip_8));
+    assign n_ov_8[1] = ($signed(fu_data_i.operand_a[15:8]) < $signed(n_limit_clip_8));
+    assign n_ov_8[0] = ($signed(fu_data_i.operand_a[7:0]) < $signed(n_limit_clip_8));
+    assign u_ov_8[3] = ($signed(fu_data_i.operand_a[31:24]) < $signed({8'b00000000}));
+    assign u_ov_8[2] = ($signed(fu_data_i.operand_a[23:16]) < $signed({8'b0000000}));
+    assign u_ov_8[1] = ($signed(fu_data_i.operand_a[15:8]) < $signed({8'b0000000}));
+    assign u_ov_8[0] = ($signed(fu_data_i.operand_a[7:0]) < $signed({8'b0000000}));
         
-        limit_clip = {1'b0, 2 **(fu_data_i.operand_b[4:0])};
-        n_limit_clip = ~limit_clip + 1; 
-        
-        if ((fu_data_i.operation == SCLIP32) || (fu_data_i.operation == UCLIP32))
-            limit_clip = {1'b0, 2 **(fu_data_i.operand_b[4:0])};
-            n_limit_clip = ~limit_clip + 1;
-            p_ov[3] = ($signed({fu_data_i.operand_a[31],fu_data_i.operand_a}) >
-                    $signed(limit_clip - 1));
-            n_ov[3] = ($signed({fu_data_i.operand_a[31],fu_data_i.operand_a}) <
-                    $signed(n_limit_clip));
-            u_ov[3] = ($signed({fu_data_i.operand_a[31],fu_data_i.operand_a}) <
-                    $signed({33{1'b0}}));
-        if ((fu_data_i.operation == SCLIP16) || (fu_data_i.operation == UCLIP16))
-            limit_clip = {1'b0, 2 **(fu_data_i.imm[3:0])};
-            n_limit_clip = ~limit_clip + 1;
-            p_ov[3] = ($signed({fu_data_i.operand_a[31],fu_data_i.operand_a[31:16]}) >
-                    $signed(limit_clip - 1));
-            n_ov[3] = ($signed({fu_data_i.operand_a[31],fu_data_i.operand_a[31:16]}) <
-                    $signed(n_limit_clip));
-            u_ov[3] = ($signed({fu_data_i.operand_a[31],fu_data_i.operand_a[31:16]}) <
-                    $signed({17{1'b0}}));
-            p_ov[1] = ($signed({fu_data_i.operand_a[15],fu_data_i.operand_a[15:0]}) >
-                    $signed(limit_clip - 1));
-            n_ov[1] = ($signed({fu_data_i.operand_a[15],fu_data_i.operand_a[15:0]}) <
-                    $signed(n_limit_clip));
-            u_ov[1] = ($signed({fu_data_i.operand_a[15],fu_data_i.operand_a[15:0]}) <
-                    $signed({17{1'b0}}));
-        if (fu_data_i.operation == SCLIP8 || fu_data_i.operation == UCLIP8)
-            limit_clip = {1'b0, 2 **(fu_data_i.imm[2:0])};
-            n_limit_clip = ~limit_clip + 1;
-            p_ov[3] = ($signed({fu_data_i.operand_a[31],fu_data_i.operand_a[31:24]}) >
-                    $signed(limit_clip - 1));
-            n_ov[3] = ($signed({fu_data_i.operand_a[31],fu_data_i.operand_a[31:24]}) <
-                    $signed(n_limit_clip));
-            u_ov[3] = ($signed({fu_data_i.operand_a[31],fu_data_i.operand_a[31:24]}) <
-                    $signed({9{1'b0}}));
-            p_ov[2] = ($signed({fu_data_i.operand_a[23],fu_data_i.operand_a[23:16]}) >
-                    $signed(limit_clip - 1));
-            n_ov[2] = ($signed({fu_data_i.operand_a[23],fu_data_i.operand_a[23:16]}) <
-                    $signed(n_limit_clip));
-            u_ov[2] = ($signed({fu_data_i.operand_a[23],fu_data_i.operand_a[23:16]}) <
-                    $signed({9{1'b0}}));
-            p_ov[1] = ($signed({fu_data_i.operand_a[15],fu_data_i.operand_a[15:8]}) >
-                    $signed(limit_clip - 1));
-            n_ov[1] = ($signed({fu_data_i.operand_a[15],fu_data_i.operand_a[15:8]}) <
-                    $signed(n_limit_clip));
-            u_ov[1] = ($signed({fu_data_i.operand_a[15],fu_data_i.operand_a[15:8]}) <
-                    $signed({9{1'b0}}));
-            p_ov[0] = ($signed({fu_data_i.operand_a[7],fu_data_i.operand_a[7:0]}) >
-                    $signed(limit_clip - 1));
-            n_ov[0] = ($signed({fu_data_i.operand_a[7],fu_data_i.operand_a[7:0]}) <
-                    $signed(n_limit_clip));
-            u_ov[0] = ($signed({fu_data_i.operand_a[7],fu_data_i.operand_a[7:0]}) <
-                    $signed({9{1'b0}}));
             
-        unique case (fu_data_i.operation)
-        //Clip 32 bits 
-            SCLIP32: clip_result = p_ov ? limit_clip - 1 : n_ov ? n_limit_clip : fu_data_i.operand_a;
-            UCLIP32: clip_result = p_ov ? limit_clip - 1 : u_ov ? {32{1'b0}} : fu_data_i.operand_a;
-        //Clip 16 bits
-            SCLIP16: clip_result = {p_ov[3] ? limit_clip - 1 : n_ov[3] ? n_limit_clip : fu_data_i.operand_a[31:16], p_ov[1] ? limit_clip - 1 : n_ov[1] ? n_limit_clip : fu_data_i.operand_a[15:0]};
-            UCLIP16: clip_result = {p_ov[3] ? limit_clip - 1 : u_ov[3] ? {17{1'b0}} : fu_data_i.operand_a[31:16], p_ov[1] ? limit_clip - 1 : u_ov[1] ? {17{1'b0}} : fu_data_i.operand_a[15:0]};
-        //Clip 8 bits
-            SCLIP8: clip_result = {p_ov[3] ? limit_clip - 1 : n_ov[3] ? n_limit_clip : fu_data_i.operand_a[31:24], p_ov[2] ? limit_clip - 1 : n_ov[2] ? n_limit_clip : fu_data_i.operand_a[23:16], p_ov[1] ? limit_clip - 1 : n_ov[1] ? n_limit_clip : fu_data_i.operand_a[15:8], p_ov[0] ? limit_clip - 1 : n_ov[0] ? n_limit_clip : fu_data_i.operand_a[7:0]};
-            UCLIP8: clip_result = {p_ov[3] ? limit_clip - 1 : u_ov[3] ? {9{1'b0}} : fu_data_i.operand_a[31:24], p_ov[2] ? limit_clip - 1 : u_ov[2] ? {9{1'b0}} : fu_data_i.operand_a[23:16], p_ov[1] ? limit_clip - 1 : u_ov[1] ? {9{1'b0}} : fu_data_i.operand_a[15:8], p_ov[0] ? limit_clip - 1 : u_ov[0] ? {9{1'b0}} : fu_data_i.operand_a[7:0]};
-            default: ;
-        endcase                             
-    end 
+    always_comb begin
+        // Clip 32 bits 
+        s_result32 = p_ov_32 ? limit_clip_32[31:0] : n_ov_32 ? n_limit_clip_32[31:0] : fu_data_i.operand_a;
+        u_result32 = p_ov_32 ? limit_clip_32 : u_ov_32 ? 32'd0 : fu_data_i.operand_a;
+
+        // Clip 16 bits
+        s_result16_h = (p_ov_16[1] ? limit_clip_16 : n_ov_16[1] ? n_limit_clip_16 : fu_data_i.operand_a[31:16]);
+        s_result16_l = (p_ov_16[0] ? limit_clip_16 : n_ov_16[0] ? n_limit_clip_16 : fu_data_i.operand_a[15:0]);
+
+        u_result16_h = (p_ov_16[1] ? limit_clip_16 : u_ov_16[1] ? 16'd0 : fu_data_i.operand_a[31:16]);
+        u_result16_l = (p_ov_16[0] ? limit_clip_16 : u_ov_16[0] ? 16'd0 : fu_data_i.operand_a[15:0]);
+
+        // Clip 8 bits
+        s_result8_3 = (p_ov_8[3] ? limit_clip_8 : n_ov_8[3] ? n_limit_clip_8 : fu_data_i.operand_a[31:24]);
+        s_result8_2 = (p_ov_8[2] ? limit_clip_8 : n_ov_8[2] ? n_limit_clip_8 : fu_data_i.operand_a[23:16]);
+        s_result8_1 = (p_ov_8[1] ? limit_clip_8 : n_ov_8[1] ? n_limit_clip_8 : fu_data_i.operand_a[15:8]);
+        s_result8_0 = (p_ov_8[0] ? limit_clip_8 : n_ov_8[0] ? n_limit_clip_8 : fu_data_i.operand_a[7:0]);
+
+        u_result8_3 = (p_ov_8[3] ? limit_clip_8 : u_ov_8[3] ? 8'd0 : fu_data_i.operand_a[31:24]);
+        u_result8_2 = (p_ov_8[2] ? limit_clip_8 : u_ov_8[2] ? 8'd0 : fu_data_i.operand_a[23:16]);
+        u_result8_1 = (p_ov_8[1] ? limit_clip_8 : u_ov_8[1] ? 8'd0 : fu_data_i.operand_a[15:8]);
+        u_result8_0 = (p_ov_8[0] ? limit_clip_8 : u_ov_8[0] ? 8'd0 : fu_data_i.operand_a[7:0]);                         
+    end
+
     
         
 
@@ -927,7 +1038,7 @@ module alu_zpn
         .WIDTH(16),
         .MODE (1)
         ) i_clo_16b_2 (
-            .in_i(operand_a_bitmanip[31:16]),
+            .in_i(~operand_a_bitmanip[31:16]),
             .cnt_o(lo_16count_1),
             .empty_o(lo_16empty_1)
         );
@@ -936,7 +1047,7 @@ module alu_zpn
         .WIDTH(8),
         .MODE (1)
         ) i_clo_8b_0 (
-            .in_i(operand_a_bitmanip[7:0]),
+            .in_i(~operand_a_bitmanip[7:0]),
             .cnt_o(lo_8count_0),
             .empty_o(lo_8empty_0)
         );
@@ -944,7 +1055,7 @@ module alu_zpn
         .WIDTH(8),
         .MODE (1)
         ) i_clo_8b_1 (
-            .in_i(operand_a_bitmanip[15:8]),
+            .in_i(~operand_a_bitmanip[15:8]),
             .cnt_o(lo_8count_1),
             .empty_o(lo_8empty_1)
         );
@@ -952,7 +1063,7 @@ module alu_zpn
         .WIDTH(8),
         .MODE (1)
         ) i_clo_8b_2 (
-            .in_i(operand_a_bitmanip[23:16]),
+            .in_i(~operand_a_bitmanip[23:16]),
             .cnt_o(lo_8count_2),
             .empty_o(lo_8empty_2)
         );
@@ -960,7 +1071,7 @@ module alu_zpn
         .WIDTH(8),
         .MODE (1)
         ) i_clo_8b_3 (
-            .in_i(operand_a_bitmanip[31:24]),
+            .in_i(~operand_a_bitmanip[31:24]),
             .cnt_o(lo_8count_3),
             .empty_o(lo_8empty_3)
         );
@@ -1070,10 +1181,10 @@ module alu_zpn
             result_o = simd_adder_result;
 
             // SIMD 8 bits Shift Operations
-            SRA8, SRA8_U, SRL8, SRL8_U, SLL8, KSLL8, KSLRA8, KSLRA8_U, SRAI8, SRAI8_U, SRLI8, SRLI8_U, SLLI8, KSLLI8 :                  //CHANGED: Add shift with immediate
+            SRA8, SRA8_U, SRL8, SRL8_U, SLL8, KSLL8, KSLRA8, KSLRA8_U :                  //CHANGED: Add shift with immediate
             result_o = simd_shift_result8;
             // SIMD 16 bits Shift Operations
-            SRA16, SRA16_U, SRL16, SRL16_U, SLL16, KSLL16, KSLRA16, KSLRA16_U, SRAI16, SRAI16_U, SRLI16, SRLI16_U, SLLI16, KSLLI16 :    //CHANGED: Add shift with immediate
+            SRA16, SRA16_U, SRL16, SRL16_U, SLL16, KSLL16, KSLRA16, KSLRA16_U :    //CHANGED: Add shift with immediate
             result_o = simd_shift_result16;
             
             //SIMD 8 bits comparisons 
@@ -1094,9 +1205,13 @@ module alu_zpn
             ZUNPKD810, ZUNPKD820, ZUNPKD830, ZUNPKD831, ZUNPKD832, SUNPKD810, SUNPKD820, SUNPKD830, SUNPKD831, SUNPKD832, PKBB16, PKBT16, PKTB16, PKTT16:
             result_o = simd_pkd_result;
             
-            //Clip 32 bits and Clip SIMD
-            SCLIP32, UCLIP32, UCLIP16, SCLIP16, UCLIP8, SCLIP8: //CHANGED: Add SIMD clip operations
-            result_o = clip_result;
+            //Clip SIMD
+            SCLIP32 : result_o = s_result32;
+            UCLIP32 : result_o = u_result32;
+            SCLIP32 : result_o = {s_result16_h, s_result16_l};
+            UCLIP32 : result_o = {u_result16_h, u_result16_l};
+            SCLIP32 : result_o = {s_result8_3, s_result8_2, s_result8_1, s_result8_0};
+            UCLIP32 : result_o = {u_result8_3, u_result8_2, u_result8_1, u_result8_0};
 
             //SIMD absolute value
             KABS8, KABS16:

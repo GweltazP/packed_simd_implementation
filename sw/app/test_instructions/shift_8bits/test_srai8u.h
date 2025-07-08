@@ -4,9 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include "print_bits.h"
-
 
 uint32_t srai8_u_sw(uint32_t a, uint8_t imm) {
     int8_t a0 = (int8_t)(a & 0xFF);

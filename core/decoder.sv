@@ -1195,7 +1195,11 @@ module decoder
         riscv::OpcodeRsrvd3: begin
           instruction_o.fu = ((instr.rtype.funct7 == 7'b101_0100) ||
                               (instr.rtype.funct7 == 7'b101_1100) ||
-                              (instr.rtype.funct7 == 7'b110_0100)) ? MULT : ALU;
+                              (instr.rtype.funct7 == 7'b110_0100) ||
+                              (instr.rtype.funct7 == 7'b100_0011) ||
+                              (instr.rtype.funct7 == 7'b100_1011) ||
+                              (instr.rtype.funct7 == 7'b100_0111) ||
+                              (instr.rtype.funct7 == 7'b100_1111)) ? MULT : ALU;
           instruction_o.rs1[4:0] = instr.rtype.rs1;
           instruction_o.rs2[4:0] = instr.rtype.rs2;
           instruction_o.rd[4:0]  = instr.rtype.rd;
@@ -1245,21 +1249,32 @@ module decoder
               {7'b110_0011, 3'b010} : instruction_o.op = ariane_pkg::KSTSA16;  // KSTSA16
 
               {7'b111_0011, 3'b010} : instruction_o.op = ariane_pkg::UKSTSA16; // UKSTSA1             
-               // SIMD 8 bits multiplications 
+              // SIMD 8 bits multiplications 
               {7'b101_0100, 3'b000} : instruction_o.op = ariane_pkg::SMUL8; 
               {7'b101_1100, 3'b000} : instruction_o.op = ariane_pkg::UMUL8;
               {7'b110_0100, 3'b000} : instruction_o.op = ariane_pkg::SMAQA;
+              {7'b100_0111, 3'b000} : instruction_o.op = ariane_pkg::KHM8; 
+              {7'b100_1111, 3'b000} : instruction_o.op = ariane_pkg::KHMX8;
+              // SIMD 16 bits multiplications
+              {7'b100_0011, 3'b000} : instruction_o.op = ariane_pkg::KHM16; 
+              {7'b100_1011, 3'b000} : instruction_o.op = ariane_pkg::KHMX16;
               // SIMD shift 
               {7'b010_1000, 3'b000} : instruction_o.op = ariane_pkg::SRA16; 
               {7'b011_0000, 3'b000} : instruction_o.op = ariane_pkg::SRA16_U; 
               {7'b010_1001, 3'b000} : instruction_o.op = ariane_pkg::SRL16; 
               {7'b011_0001, 3'b000} : instruction_o.op = ariane_pkg::SRL16_U; 
               {7'b010_1010, 3'b000} : instruction_o.op = ariane_pkg::SLL16; 
+              {7'b011_0010, 3'b000} : instruction_o.op = ariane_pkg::KSLL16;
+              {7'b010_1011, 3'b000} : instruction_o.op = ariane_pkg::KSLRA16;
+              {7'b011_0011, 3'b000} : instruction_o.op = ariane_pkg::KSLRA16_U;
               {7'b010_1100, 3'b000} : instruction_o.op = ariane_pkg::SRA8; 
               {7'b011_0100, 3'b000} : instruction_o.op = ariane_pkg::SRA8_U; 
               {7'b010_1101, 3'b000} : instruction_o.op = ariane_pkg::SRL8; 
               {7'b011_0101, 3'b000} : instruction_o.op = ariane_pkg::SRL8_U; 
               {7'b010_1110, 3'b000} : instruction_o.op = ariane_pkg::SLL8; 
+              {7'b011_0110, 3'b000} : instruction_o.op = ariane_pkg::KSLL8;
+              {7'b010_1111, 3'b000} : instruction_o.op = ariane_pkg::KSLRA8;
+              {7'b011_0111, 3'b000} : instruction_o.op = ariane_pkg::KSLRA8_U;
               // SIMD Comparisons 
               {7'b010_0110, 3'b000} : instruction_o.op = ariane_pkg::CMPEQ16; 
               {7'b000_0110, 3'b000} : instruction_o.op = ariane_pkg::SCMPLT16; 
@@ -1298,57 +1313,78 @@ module decoder
                     5'b01110 : instruction_o.op = ariane_pkg::ZUNPKD830; 
                     5'b01111 : instruction_o.op = ariane_pkg::ZUNPKD831; 
                     5'b10111 : instruction_o.op = ariane_pkg::ZUNPKD832; 
+                    5'b10001 : instruction_o.op = ariane_pkg::KABS16;
+                    5'b10000 : instruction_o.op = ariane_pkg::KABS8;
+                    default : illegal_instr = 1'b1; // Catch-all for undefined instructions
+                endcase
+              end
+              {7'b101_0111, 3'b000} : begin
+                unique case ({instr.rtype.rs2})
+                    5'b00000 : instruction_o.op = ariane_pkg::CLRS8;
+                    5'b01000 : instruction_o.op = ariane_pkg::CLRS16;
+                    5'b00001 : instruction_o.op = ariane_pkg::CLZ8;
+                    5'b01001 : instruction_o.op = ariane_pkg::CLZ16;
+                    5'b00011 : instruction_o.op = ariane_pkg::CLO8;
+                    5'b01011 : instruction_o.op = ariane_pkg::CLO16;
                     default : illegal_instr = 1'b1; // Catch-all for undefined instructions
                 endcase
               end 
               
          // Reg-Imm SIMD instructions
-              //SIMD Shift immediate
-              //SRAI16
-//              {7'b011_1000, 3'b000} : begin 
-//                imm_select = IIMM;
-//                unique case ({instr.rtype.rs2[4]})
-//                     1'b0 : instruction_o.op = ariane_pkg::SRA16;                
-//                     1'b1 : instruction_o.op = ariane_pkg::SRA16_U;                
-//                    default : ;
-//                endcase 
-//              end         
-              //SRLI16
-//              {7'b011_1001, 3'b000} : begin 
-//                imm_select = IIMM;
-//                unique case ({instr.rtype.rs2[4]})
-//                     1'b0 : instruction_o.op = ariane_pkg::SRL16;                
-//                     1'b1 : instruction_o.op = ariane_pkg::SRL16_U;                
-//                    default : ;
-//                endcase 
-//              end
+             //SIMD Shift immediate
+             //SRAI16
+             {7'b011_1000, 3'b000} : begin 
+               imm_select = IIMM;
+               unique case ({instr.rtype.rs2[4]})
+                    1'b0 : instruction_o.op = ariane_pkg::SRA16;                
+                    1'b1 : instruction_o.op = ariane_pkg::SRA16_U;                
+                   default : ;
+               endcase 
+             end         
+             //SRLI16
+             {7'b011_1001, 3'b000} : begin 
+               imm_select = IIMM;
+               unique case ({instr.rtype.rs2[4]})
+                    1'b0 : instruction_o.op = ariane_pkg::SRL16;                
+                    1'b1 : instruction_o.op = ariane_pkg::SRL16_U;                
+                   default : ;
+               endcase 
+             end
               //SLLI16
               {7'b011_1010, 3'b000} : begin 
                 imm_select = IIMM;
-                instruction_o.op = ariane_pkg::SLL16;                
+                unique case ({instr.rtype.rs2[4]})
+                    1'b0 : instruction_o.op = ariane_pkg::SLL16;               
+                    1'b1 : instruction_o.op = ariane_pkg::KSLL16;                  
+                   default : ;
+               endcase                
               end
-              //SRAI8
-//              {7'b011_1100, 3'b000} : begin 
-//                imm_select = IIMM;
-//                unique case ({instr.rtype.rs2[4:3]})
-//                     2'b00 : instruction_o.op = ariane_pkg::SRA8;                
-//                     2'b01 : instruction_o.op = ariane_pkg::SRA8_U;                
-//                    default : ;
-//                endcase 
-//              end       
-//              //SRLI8
-//              {7'b011_1101, 3'b000} : begin 
-//                imm_select = IIMM;
-//                unique case ({instr.rtype.rs2[4:3]})
-//                     2'b00 : instruction_o.op = ariane_pkg::SRL8;                
-//                     2'b01 : instruction_o.op = ariane_pkg::SRL8_U;                
-//                    default : ;
-//                endcase 
-//              end
+             //SRAI8
+             {7'b011_1100, 3'b000} : begin 
+               imm_select = IIMM;
+               unique case ({instr.rtype.rs2[3]})
+                    1'b0 : instruction_o.op = ariane_pkg::SRA8;                
+                    1'b1 : instruction_o.op = ariane_pkg::SRA8_U;                
+                   default : ;
+               endcase 
+             end       
+             //SRLI8
+             {7'b011_1101, 3'b000} : begin 
+               imm_select = IIMM;
+               unique case ({instr.rtype.rs2[3]})
+                    1'b0 : instruction_o.op = ariane_pkg::SRL8;                
+                    1'b1 : instruction_o.op = ariane_pkg::SRL8_U;                
+                   default : ;
+               endcase 
+             end
              //SLLI8
               {7'b011_1110, 3'b000} : begin 
                 imm_select = IIMM;
-                instruction_o.op = ariane_pkg::SLL8;                
+                unique case ({instr.rtype.rs2[3]})
+                    1'b0 : instruction_o.op = ariane_pkg::SLL8;                
+                    1'b1 : instruction_o.op = ariane_pkg::KSLL8;               
+                   default : ;
+               endcase
               end
          
               //Clip 32 bits
@@ -1361,6 +1397,25 @@ module decoder
               instruction_o.op = ariane_pkg::UCLIP32; 
               end 
               
+              //Clip 16 bits
+              {7'b100_0010, 3'b000} : begin 
+                imm_select = IIMM;
+                unique case ({instr.rtype.rs2[4]})
+                  1'b0 : instruction_o.op = ariane_pkg::SCLIP16;                
+                  1'b1 : instruction_o.op = ariane_pkg::UCLIP16;
+                  default: ;
+                endcase
+              end
+
+              //Clip 8 bits
+              {7'b100_0110, 3'b000} : begin
+                imm_select = IIMM;
+                unique case({instr.rtype.rs2[4]})
+                  1'b0 : instruction_o.op = ariane_pkg::SCLIP8;
+                  1'b1 : instruction_o.op = ariane_pkg::UCLIP8;
+                  default: ;
+                endcase
+              end
               
               
               default : illegal_instr = 1'b1; // Catch-all for undefined instructions

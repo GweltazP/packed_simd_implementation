@@ -22,7 +22,7 @@ package cva6_config_pkg;
   localparam CVA6ConfigCExtEn = 1;
   localparam CVA6ConfigZcbExtEn = 0;
   localparam CVA6ConfigAExtEn = 1;
-  localparam CVA6ConfigBExtEn = 0;
+  localparam CVA6ConfigBExtEn = 1;
   localparam CVA6ConfigVExtEn = 0;
   localparam CVA6ConfigZiCondExtEn = 0;
   //CHANGED: added selection for P extension

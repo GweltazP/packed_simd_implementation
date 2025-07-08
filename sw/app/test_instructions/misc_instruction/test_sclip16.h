@@ -43,7 +43,7 @@ uint32_t sclip16_sw(uint32_t rs1, uint8_t imm4u, uint8_t* ov) {
 // Returns 1 if test passed, 0 otherwise
 int run_single_sclip16_test(int test_num) {
     uint32_t a = ((uint32_t)rand() << 16) | (uint32_t)rand();
-    uint8_t imm = 7; // 0–15 range
+    uint8_t imm = 11; // 0–15 range
 
     uint32_t expected;
     uint8_t expected_ov = 0;
@@ -55,7 +55,7 @@ int run_single_sclip16_test(int test_num) {
     // In this placeholder, we assume OV is returned in a flag register or memory
     // You’ll need to adapt this to how your hardware exposes the OV bit.
     __asm__ volatile (
-        "sclip16 %0, %1, 7"
+        "sclip16 %0, %1, 11"
         //"csrr %3, ov" // Placeholder: capture OV flag from CSR (if your arch supports this)
         : "=r" (result) //, "=r" (actual_ov)
         : "r" (a)
@@ -69,28 +69,24 @@ int run_single_sclip16_test(int test_num) {
     int32_to_binary_str(expected, expected_bit);
 
     printf("Test %3d: %-10s %s (\n\r"
-        "Result: %d, \n\r"
         "Result_lo   : %6d (signed)\n\r"
         "Result_hi   : %6d (signed)\n\r"
         "Result_bit: %s, \n\r"
-        "Expected: %d, \n\r"
         "Expected_lo : %6d (signed)\n\r"
         "Expected_hi : %6d (signed)\n\r"
         "Expected_bit: %s, \n\r"
-        "a: %d, \n\r"
         "a_lo : %6d (signed)\n\r"
         "a_hi : %6d (signed)\n\r"
         "a_bit = %s, \n\r"
         "max = %2d, \n\r"
         "min = %2d)\n\r",
-        test_num, "srai16", pass ? "PASS" : "FAIL",
-        result,
+        test_num, "sclip16", pass ? "PASS" : "FAIL",
         (int16_t)(result & 0xFFFF),
         (int16_t)((result >> 16) & 0xFFFF),
-        result_bit, expected, 
+        result_bit,
         (int16_t)(expected & 0xFFFF),
         (int16_t)((expected >> 16) & 0xFFFF),
-        expected_bit, a,
+        expected_bit,
         (int16_t)(a & 0xFFFF),
         (int16_t)((a >> 16) & 0xFFFF),
         a_bit, (1 << imm) - 1, -(1 << imm));

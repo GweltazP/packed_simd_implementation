@@ -7,27 +7,41 @@
 #include "print_bits.h"
 
 uint32_t ksll8_sw(uint32_t a, uint32_t b) {
-    int8_t a0 = (int8_t)(a & 0xFF);
-    int8_t a1 = (int8_t)((a >> 8) & 0xFF);
-    int8_t a2 = (int8_t)((a >> 16) & 0xFF);
-    int8_t a3 = (int8_t)((a >> 24) & 0xFF);
-    uint8_t shift = b & 0xF;
+    int32_t a0 = (int8_t)(a & 0xFF);
+    int32_t a1 = (int8_t)((a >> 8) & 0xFF);
+    int32_t a2 = (int8_t)((a >> 16) & 0xFF);
+    int32_t a3 = (int8_t)((a >> 24) & 0xFF);
+    uint8_t shift = b & 0x7;
 
-    int8_t r0 = saturate_8((int32_t)a0 << shift);
-    int8_t r1 = saturate_8((int32_t)a1 << shift);
-    int8_t r2 = saturate_8((int32_t)a2 << shift);
-    int8_t r3 = saturate_8((int32_t)a3 << shift);
+    int32_t s0 = a0;
+    int32_t s1 = a1;
+    int32_t s2 = a2;
+    int32_t s3 = a3;
 
-    return ((uint32_t)(uint8_t)r3 << 24) |
-           ((uint32_t)(uint8_t)r2 << 16) |
-           ((uint32_t)(uint8_t)r1 << 8)  |
-           (uint32_t)(uint8_t)r0;
+    if(shift!=0){
+
+        int32_t r0 = (uint32_t)a0 << shift;
+        int32_t r1 = (uint32_t)a1 << shift;
+        int32_t r2 = (uint32_t)a2 << shift;
+        int32_t r3 = (uint32_t)a3 << shift;
+
+        s0 = saturate_8(r0);
+        s1 = saturate_8(r1);
+        s2 = saturate_8(r2);
+        s3 = saturate_8(r3);
+        
+    }
+
+    return ((uint32_t)(uint8_t)s3 << 24) |
+           ((uint32_t)(uint8_t)s2 << 16) |
+           ((uint32_t)(uint8_t)s1 << 8)  |
+           (uint32_t)(uint8_t)s0;
 }
 
 int run_single_ksll8_test(int test_num) {
     uint32_t a = ((uint32_t)rand() << 16) | rand();
     uint32_t b = rand();
-    b = b & 0xF;
+    b = b & 0x7;
 
     volatile int result;
 
